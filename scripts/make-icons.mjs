@@ -87,6 +87,19 @@ for size in (16, 32, 48, 128):
 # separately from the extension, so shipping a 512 inside the zip is pure weight.
 draw(512).save(os.path.join(STORE_OUT, "icon-512.png"))
 print("  wrote store/icon-512.png")
+
+# The listing icon is a different shape again. Google asks for a 128x128 file whose
+# artwork occupies the middle 96x96, leaving 16px of transparency on every side,
+# because the store draws its own frame around it. The in-package icons must NOT
+# have that padding, since Chrome adds its own. Drawn at 96 rather than downscaled
+# from the 512, so it only gets resampled once.
+STORE_ICON, STORE_ART = 128, 96
+canvas = Image.new("RGBA", (STORE_ICON, STORE_ICON), (0, 0, 0, 0))
+art = draw(STORE_ART)
+inset = (STORE_ICON - STORE_ART) // 2
+canvas.paste(art, (inset, inset), art)
+canvas.save(os.path.join(STORE_OUT, "icon-store-128.png"))
+print("  wrote store/icon-store-128.png  (%dx%d artwork, %dpx padding)" % (STORE_ART, STORE_ART, inset))
 `;
 
 const result = spawnSync('python3', ['-c', python], { stdio: 'inherit' });

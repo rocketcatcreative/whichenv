@@ -1,0 +1,124 @@
+# Two jobs, deliberately separate.
+#
+# verify   the checks that must pass for a change to be correct: types, unit tests, build.
+#          Mirrors `npm run verify`, spelled out as steps so a failure names itself in the
+#          Actions UI rather than hiding inside one composite script.
+#
+# assets   proves the icon generator still works and produces correctly shaped output.
+#
+#          It deliberately does NOT diff the result against the committed PNGs. Pillow's
+#          Lanczos output can shift between releases, so a byte comparison fails on a
+#          library upgrade rather than on real drift, and a check that cries wolf gets
+#          ignored. It asserts the properties that matter instead, including that the store
+#          listing icon really is 96x96 artwork inset by 16px on every side.
+#
+#          public/marks is not regenerated here. That generator needs Playwright, which is
+#          kept out of devDependencies on purpose so a normal checkout does not download a
+#          browser, and the marks only change when a palette colour or a mark shape changes.
+#          Regenerate those locally when that happens:
+#            npm install --no-save playwright && npx playwright install chromium && npm run marks
+#
+# The e2e suite (`npm run test:e2e:all`) is not here. It drives a real browser and is the
+# slowest, flakiest part of `npm run check`. Worth adding once it has proven stable in CI;
+# until then it stays a local gate before a release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Package
+        run: npm run zip
+
+      - name: Keep the packaged zip for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-zip
+          path: dist.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+      - run: python -m pip install --upgrade Pillow
+
+      - name: Generate the icons
+        run: npm run icons
+
+      - name: Check the output is shaped correctly
+        run: |
+          python - <<'EOF'
+          from PIL import Image
+          import sys
+
+          fails = []
+
+          def check(path, size):
+              img = Image.open(path)
+              if img.size != (size, size):
+                  fails.append("%s is %dx%d, expected %dx%d" % (path, *img.size, size, size))
+              return img
+
+          for s in (16, 32, 48, 128):
+              check("public/icons/%d.png" % s, s)
+
+          check("store/icon-512.png", 512)
+
+          # The listing icon is the one with a shape requirement worth asserting: 128x128
+          # overall, with the artwork occupying the middle 96x96 and 16px of transparency
+          # on every side. Measure it from the alpha channel rather than trusting the code.
+          store = check("store/icon-store-128.png", 128)
+          box = store.getchannel("A").getbbox()
+          if box != (16, 16, 112, 112):
+              fails.append("store/icon-store-128.png artwork bbox is %s, expected (16, 16, 112, 112)" % (box,))
+
+          if fails:
+              for f in fails:
+                  print("::error::%s" % f)
+              sys.exit(1)
+          print("icons OK: four package sizes, 512 for reference, and a correctly inset 128 listing icon")
+          EOF

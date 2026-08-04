@@ -1,5 +1,7 @@
 # WhichEnv
 
+[![CI](https://github.com/rocketcatcreative/whichenv/actions/workflows/ci.yml/badge.svg)](https://github.com/rocketcatcreative/whichenv/actions/workflows/ci.yml)
+
 A Chrome extension that shows which environment you are looking at, and switches
 between dev, staging, prod and local at the same path.
 
@@ -15,6 +17,19 @@ sibling environment, keeping the path, query string and hash intact.
 Create a group, allow access to its hosts when asked, and any tab on one of those
 environments shows the indicator; click it to switch, keeping the path, query and
 fragment.
+
+---
+
+## Install
+
+[**Add to Chrome**](https://chromewebstore.google.com/detail/whichenv-environment-indi/jfpaiglimpffdehfmpeehdgimalnldno) from the Chrome Web Store.
+
+It asks for no website access at install. Access to a site is requested only when you save
+a group that names it, for those origins alone, and released again automatically once no
+group refers to them. Loopback addresses are granted up front, so local development never
+prompts at all.
+
+To build and run it from source instead, carry on below.
 
 ---
 
