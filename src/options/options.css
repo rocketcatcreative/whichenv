@@ -1,0 +1,826 @@
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#fbfbfa, #18181b);
+  --panel: light-dark(#ffffff, #232326);
+  --fg: light-dark(#1c1917, #e7e5e4);
+  --muted: light-dark(#78716c, #a1a1aa);
+  --line: light-dark(#e7e5e4, #3f3f46);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 28px 72px;
+}
+
+.head { margin-bottom: 26px; }
+
+h1 {
+  font-size: 20px;
+  font-weight: 650;
+  margin: 0 0 2px;
+}
+
+.version {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+h2 {
+  font-size: 14px;
+  font-weight: 650;
+  margin: 0 0 6px;
+}
+
+.note {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.panel .note:last-child { margin-bottom: 0; }
+
+/* ------------------------------------------------------ corner picker */
+
+.corners {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 520px;
+}
+
+.corner {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 7px;
+  justify-items: center;
+  padding: 9px 9px 8px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.corner:hover { border-color: light-dark(#a8a29e, #52525b); }
+
+.corner[aria-checked='true'] {
+  border-color: light-dark(#1d4ed8, #93b4ff);
+  box-shadow: inset 0 0 0 1px light-dark(#1d4ed8, #93b4ff);
+}
+
+.corner:focus-visible {
+  outline: 2px solid light-dark(#1d4ed8, #93b4ff);
+  outline-offset: 2px;
+}
+
+/* A miniature browser viewport, with a miniature pill in the chosen corner. */
+.corner-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 5px;
+  background: light-dark(#f5f5f4, #2a2a2e);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.corner-preview::before {
+  /* Suggestion of page content, so the pill reads as an overlay. */
+  content: '';
+  position: absolute;
+  inset: 22% 18% auto 18%;
+  height: 3px;
+  border-radius: 2px;
+  background: light-dark(#e0dedb, #3f3f46);
+  box-shadow:
+    0 8px 0 light-dark(#e7e5e4, #3a3a41),
+    0 16px 0 light-dark(#ecebe9, #35353b);
+}
+
+.corner-preview::after {
+  content: '';
+  position: absolute;
+  width: 38%;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--preview-color, #f59e0b);
+}
+
+.corner[data-corner='tl'] .corner-preview::after { top: 7px; left: 0; border-radius: 0 999px 999px 0; }
+.corner[data-corner='tr'] .corner-preview::after { top: 7px; right: 0; border-radius: 999px 0 0 999px; }
+.corner[data-corner='bl'] .corner-preview::after { bottom: 7px; left: 0; border-radius: 0 999px 999px 0; }
+.corner[data-corner='br'] .corner-preview::after { bottom: 7px; right: 0; border-radius: 999px 0 0 999px; }
+
+.corner-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.corner[aria-checked='true'] .corner-label {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------- palette picker */
+
+/* Four across, matching the corner picker above, so the two panels read as siblings.
+   The descriptions wrap rather than the grid reflowing to a ragged second row. */
+.palettes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 700px;
+  margin-bottom: 22px;
+}
+
+.palette {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  padding: 10px 12px 11px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.palette:hover { border-color: light-dark(#a8a29e, #52525b); }
+
+.palette[aria-checked='true'] {
+  border-color: light-dark(#1d4ed8, #93b4ff);
+  box-shadow: inset 0 0 0 1px light-dark(#1d4ed8, #93b4ff);
+}
+
+.palette:focus-visible {
+  outline: 2px solid light-dark(#1d4ed8, #93b4ff);
+  outline-offset: 2px;
+}
+
+/* The colours themselves, in pipeline order, so the choice is made by looking. */
+.palette-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: 18px;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.palette-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.palette[aria-checked='true'] .palette-label {
+  color: light-dark(#1d4ed8, #93b4ff);
+}
+
+.palette-note {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.swatches {
+  display: grid;
+  gap: 10px;
+}
+
+.swatch {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.swatch .meta { line-height: 1.4; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.chip .g { font-size: 10px; }
+
+.meta {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.reserved {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+
+/* ==================================================== groups: list and cards */
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 18px 0 4px;
+}
+
+.empty-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.empty-state .field-hint { margin: 0 0 8px; max-width: 56ch; }
+
+.group-cards { display: grid; gap: 12px; }
+
+.group-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 15px;
+}
+
+.group-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 11px;
+}
+
+.group-card-title { font-size: 14px; font-weight: 650; margin: 0; }
+
+.group-card-desc {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.group-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 620;
+}
+
+.group-chip-host {
+  font-weight: 450;
+  opacity: 0.8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.group-chip-lock { font-size: 10px; opacity: 0.9; }
+
+.env-glyph { font-size: 9px; line-height: 1; }
+
+.group-card-foot {
+  margin: 11px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.list-actions { margin-top: 16px; }
+
+/* ============================================================ port registry */
+
+.port-registry {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  font-size: 12.5px;
+}
+
+.port-registry summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.port-table {
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.port-table td { padding: 3px 16px 3px 0; vertical-align: middle; }
+
+.port-cell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.port-group { color: var(--muted); }
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: baseline;
+}
+
+/* ================================================================== banners */
+
+.banner {
+  border-radius: 10px;
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  border: 1px solid transparent;
+}
+
+.banner-error {
+  background: light-dark(#fef2f2, #2a1a1a);
+  border-color: light-dark(#fecaca, #7f2b2b);
+}
+
+.banner-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.banner-list { margin: 0 0 8px; padding-left: 18px; font-size: 12.5px; }
+
+.banner-list code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.banner .field-hint { margin: 0; }
+
+/* =================================================================== editor */
+
+.editor { display: grid; gap: 16px; }
+
+.editor-title { font-size: 13px; font-weight: 650; margin: 0; }
+
+.field { display: grid; gap: 5px; }
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.req { color: light-dark(#b91c1c, #fca5a5); }
+
+.field-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.text-input {
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: light-dark(#ffffff, #1c1c1f);
+  color: var(--fg);
+}
+
+.text-input:focus-visible {
+  outline: 2px solid light-dark(#1d4ed8, #93b4ff);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+textarea.text-input { resize: vertical; min-height: 44px; }
+
+.has-error > .text-input,
+.env-row.has-error .url-input {
+  border-color: light-dark(#dc2626, #f87171);
+}
+
+.field-issues:empty { display: none; }
+
+.issue {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.issue-error { color: light-dark(#b91c1c, #fca5a5); }
+.issue-warning { color: light-dark(#a16207, #fcd34d); }
+.issue-ok { color: light-dark(#15803d, #86efac); }
+
+/* ------------------------------------------------------------ environments */
+
+.env-section {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 15px;
+  display: grid;
+  gap: 12px;
+}
+
+.env-section-head h4 { margin: 0 0 4px; font-size: 12px; font-weight: 650; }
+.env-section-head .field-hint { max-width: 66ch; }
+
+.env-list { display: grid; gap: 14px; }
+
+.env-row { display: grid; gap: 7px; }
+
+
+/* The remembered URL a removed environment will come back with. */
+.add-kept {
+  margin-left: 6px;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+.env-row-main {
+  display: grid;
+  /*
+   * One column per child, in DOM order: chip, label, URL, reorder, remove.
+   *
+   * The URL takes the 1fr because it is the only field here whose content has no useful
+   * upper bound. A label is a word; a base URL is a host with a port and maybe a path, and
+   * it is the thing you actually read back before saving.
+   *
+   * Count these against the row's children if either ever changes. They were previously
+   * shifted one place left, left over from when a per-row enabled checkbox was the second
+   * child, which handed the 1fr to the reorder buttons and squeezed the URL into the 116px
+   * meant for the label.
+   */
+  grid-template-columns: auto 116px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.env-chip {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex: none;
+}
+
+.label-input { font-size: 12.5px; }
+
+.url-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.env-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-left: 33px;
+}
+
+.inline-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.inline-check-sm { font-size: 11.5px; color: var(--muted); align-items: center; }
+
+.sub-note {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.env-row .field-issues { padding-left: 33px; display: grid; gap: 2px; }
+
+.aliases { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.alias-row { display: flex; align-items: center; gap: 4px; }
+
+.alias-input {
+  width: 190px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 4px 7px;
+}
+
+.add-env { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ================================================================= buttons */
+
+.btn {
+  appearance: none;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 7px 13px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: light-dark(#fafaf9, #2a2a2e);
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { border-color: light-dark(#a8a29e, #52525b); }
+
+.btn:focus-visible {
+  outline: 2px solid light-dark(#1d4ed8, #93b4ff);
+  outline-offset: 2px;
+}
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-primary {
+  background: light-dark(#1d4ed8, #3b6ef5);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-primary:hover { background: light-dark(#1a45c0, #4d7cf7); }
+
+.btn-sm { font-size: 12px; padding: 5px 10px; }
+
+.btn-ghost { background: none; border-style: dashed; color: var(--muted); }
+.btn-ghost:hover { color: var(--fg); }
+
+.btn-icon {
+  padding: 0;
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border-color: transparent;
+}
+
+.btn-icon:hover { color: light-dark(#b91c1c, #fca5a5); border-color: var(--line); }
+
+.btn-icon-sm { width: 22px; height: 22px; font-size: 14px; }
+
+.btn-danger {
+  background: light-dark(#c62828, #b91c1c);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-danger-ghost { background: none; color: light-dark(#b91c1c, #fca5a5); }
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-top: 4px;
+}
+
+.delete-slot {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.delete-prompt { font-size: 12.5px; color: var(--muted); }
+
+.editor-summary:empty { display: none; }
+
+@media (max-width: 680px) {
+  /*
+   * Narrow: the URL drops onto its own full width line below the rest of the row.
+   *
+   * Four columns for the four controls that stay on the first line, and the URL placed
+   * explicitly on the second. Everything else auto-places around it in DOM order, so no
+   * other control needs a hard coded column.
+   */
+  .env-row-main { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .url-input { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/*
+ * Reserve the height of one row of alias controls.
+ *
+ * The alias offers appear and disappear as a base URL is typed. Without reserved
+ * space the row would change height mid-interaction, moving every control below it
+ * and sending a click that is already in flight to the wrong element.
+ */
+.aliases-host {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+/* ============================================================== permissions */
+
+.access-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: light-dark(#fffbeb, #2a2416);
+  border: 1px solid light-dark(#fde68a, #6b5416);
+}
+
+.access-note {
+  margin: 0;
+  flex: 1;
+  min-width: 240px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.access-note strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* ================================================================ shortcuts */
+
+.shortcut-table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+
+.shortcut-table td {
+  padding: 4px 16px 4px 0;
+  vertical-align: middle;
+}
+
+.shortcut-keys { width: 132px; }
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: light-dark(#f5f5f4, #2e2e33);
+  white-space: nowrap;
+}
+
+.shortcut-none {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.shortcut-unbound td:not(.shortcut-keys) { color: var(--muted); }
+
+/* ================================================================ switching */
+
+#switching {
+  display: grid;
+  gap: 14px;
+  max-width: 60ch;
+}
+
+.setting-field { gap: 6px; }
+
+/*
+ * The two page markers, side by side where there is room.
+ *
+ * Side by side on purpose: they are alternatives more often than a pair, and reading
+ * them together is how you notice you have turned both on and made the page loud.
+ */
+.tristate-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 14px;
+}
+
+.tristate-row .field-hint { max-width: 44ch; }
+
+.select-input {
+  width: auto;
+  min-width: 220px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+}
+
+.env-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.env-reorder .btn-icon-sm {
+  height: 14px;
+  width: 20px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+.env-reorder .btn-icon-sm:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: var(--line);
+}
+
+/* ========================================================= backup and share */
+
+#backup { display: grid; gap: 14px; max-width: 62ch; }
+
+.backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.backup-row input[type='file'] { font-size: 12px; color: var(--muted); }
+
+.import-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  resize: vertical;
+}
+
+.import-plan:empty { display: none; }
+
+.plan-summary {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.plan-add { color: light-dark(#15803d, #86efac); }
+.plan-update { color: light-dark(#a16207, #fcd34d); }
+.plan-remove { color: light-dark(#b91c1c, #fca5a5); }
+.plan-skip { color: var(--muted); }
+
+.backup-status:empty { display: none; }
+
+.group-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+
+.list-notice { margin: 12px 0 0; }

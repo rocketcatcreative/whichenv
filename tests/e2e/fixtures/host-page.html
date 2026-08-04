@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Host page under test</title>
+    <link
+      rel="icon"
+      sizes="64x64"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23ff00ff'/%3E%3Ccircle cx='32' cy='32' r='18' fill='white'/%3E%3C/svg%3E"
+    />
+    <style>
+      /*
+       * Deliberately hostile styles. Every element type the indicator uses is
+       * targeted with !important, and a high z-index element is pinned to the
+       * bottom of the viewport. The indicator lives in a closed shadow root, so
+       * none of this should reach it. If a future change breaks that isolation,
+       * the screenshots from this fixture will show it immediately.
+       */
+      * { box-sizing: content-box !important; }
+      button, div, span, ul, li {
+        font-family: 'Comic Sans MS', cursive !important;
+        color: hotpink !important;
+        background: lime !important;
+        border-radius: 0 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 4px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      body { margin: 0; font: 16px/1.6 system-ui, sans-serif; background: #f4f4f2; color: #222; }
+      main { max-width: 620px; margin: 0 auto; padding: 56px 24px; }
+      h1 { font-size: 26px; }
+      .banner {
+        position: fixed; bottom: 0; left: 0; right: 0; height: 46px;
+        background: #111 !important; color: #fff !important;
+        z-index: 999999; display: grid; place-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Host page under test</h1>
+      <p>
+        This page applies aggressive global CSS with <code>!important</code> on every
+        element type the indicator uses, and pins a high z-index bar to the bottom of
+        the viewport. The indicator lives in a closed shadow root, so none of it
+        should apply.
+      </p>
+      <p><button>A page button, for comparison</button></p>
+    </main>
+    <div class="banner">A fixed z-index 999999 page element</div>
+    <script>
+      /*
+       * Sites really do this: Gmail and Slack paint unread counts into the favicon,
+       * and SPAs re-render <head> on navigation. Anything that swaps the icon once and
+       * walks away gets silently reverted a second later, so the page under test is
+       * given the same habit and told to do it on demand.
+       */
+      window.__stealFavicon = () => {
+        for (const link of document.querySelectorAll('link[rel~="icon"]')) link.remove();
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.href = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%2300ffff'/%3E%3C/svg%3E";
+        document.head.append(link);
+        return link.href;
+      };
+    </script>
+  </body>
+</html>

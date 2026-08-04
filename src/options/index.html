@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WhichEnv Settings</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="head">
+        <h1>WhichEnv</h1>
+        <p class="version" id="version"></p>
+      </header>
+
+      <section class="panel">
+        <h2>Indicator position</h2>
+        <p class="note">
+          Where the indicator sits on every page. This is global rather than per
+          group on purpose: glancing at the same corner on every site is the whole
+          point, and that only works if it never moves. Changes apply immediately
+          in tabs you already have open.
+        </p>
+        <div class="corners" id="corners" role="radiogroup" aria-label="Indicator position"></div>
+        <div id="indicator-size"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Page markers</h2>
+        <p class="note">
+          Two extra ways to tell environments apart, for when the pill alone is not
+          enough. These are the defaults for every group. Any group can override either
+          one, under Edit.
+        </p>
+        <div id="markers"></div>
+      </section>
+
+      <section class="panel" id="groups-panel">
+        <h2>Environment groups</h2>
+        <p class="note">
+          A group is one site and the environments you switch between. Switching
+          keeps the path, query string and fragment, so you land on the same page
+          you were already looking at.
+        </p>
+        <div id="groups-view"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Switching</h2>
+        <p class="note">
+          How a switch behaves by default. Cmd or Ctrl inverts it, so you always have
+          a gesture for the other one. Shift always opens a new window.
+        </p>
+        <div id="switching"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Backup and sharing</h2>
+        <p class="note">
+          Groups sync with your Chrome profile, but a backup is worth having, and a
+          single group pasted to a teammate saves them setting it up by hand. Nothing
+          is written until you have seen what an import will do.
+        </p>
+        <div id="backup"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Keyboard shortcuts</h2>
+        <p class="note">
+          Chrome allows an extension to suggest at most four shortcuts, so the
+          numeric jumps ship unbound. Assign them here if you switch often enough to
+          want them.
+        </p>
+        <div id="shortcuts"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Environment colors</h2>
+        <p class="note">
+          Individual colors are not editable, by design. The same environment is
+          always the same color across every group, so the mapping becomes muscle
+          memory. What you can change is which set is in use, globally, and the
+          mapping stays fixed inside every set. Every color is also paired with a
+          text label and a distinct shape, so the indicator stays readable if you
+          cannot distinguish the hues.
+        </p>
+        <div class="palettes" id="palettes" role="radiogroup" aria-label="Color set"></div>
+        <div class="swatches" id="swatches"></div>
+      </section>
+    </div>
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>

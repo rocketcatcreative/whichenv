@@ -1,0 +1,459 @@
+/*
+ * Styles for the indicator, injected into a CLOSED shadow root.
+ *
+ * `all: initial` on :host is the reset. Because the shadow root is closed and
+ * we never use inheritable-by-default values from the page, host page CSS
+ * cannot reach in here, and nothing in here can affect the host page's layout.
+ *
+ * The host element is position: fixed and never participates in page layout.
+ */
+
+:host {
+  all: initial;
+  position: fixed;
+  z-index: 2147483647;
+  /* Only the pill itself is interactive; the host box must not eat clicks. */
+  pointer-events: none;
+  /* Positioned by JS via --es-corner-* custom properties. */
+  inset: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--es-font, 12px);
+  line-height: 1;
+  color-scheme: light dark;
+
+  /*
+   * Every dimension of the pill comes from one of these, and nothing below sets a size
+   * directly. That is the only way two sizes stay one design rather than drifting into
+   * two: a change to the padding of the normal pill is a change to the large one. The
+   * values here ARE the normal size, unchanged from before the setting existed.
+   *
+   * The two max-widths are in here for the same reason. They are the only caps on how
+   * wide the pill gets, so leaving them fixed while the font grew would mean the large
+   * size bought bigger text and then truncated the group name to pay for it.
+   */
+  --es-font: 12px;
+  --es-pill-h: 34px;
+  --es-pill-pad: 0 13px 0 11px;
+  --es-glyph: 10px;
+  --es-collapsed-w: 9px;
+  --es-cue: 11px;
+  --es-gap: 7px;
+  --es-pill-max: 320px;
+  --es-group-max: 190px;
+  --es-pill-block-spacing: 35px;
+
+  /*
+   * How far in from the viewport edge the pill starts. Set by JS: the frame's width when
+   * this group draws one, zero when it does not.
+   *
+   * It has to be computed rather than picked once. The frame is `inset: 0` and the pill
+   * sits flush against the same edge, so at any width above a hairline the frame draws
+   * over it, and at 16px it would swallow the collapsed chip whole. This was already
+   * subtly wrong at the old fixed 5px.
+   */
+  --es-edge: 0px;
+}
+
+/*
+ * Large is for people who were still missing the normal one, so it is a real step up
+ * rather than a nudge: half again on the height, a third on the text. A size that reads
+ * as "slightly different" would fail at the only job it has.
+ */
+:host([data-size='large']) {
+  --es-font: 20px;
+  --es-pill-h: 52px;
+  --es-pill-pad: 0 24px 0 20px;
+  /* Kept in proportion to the text. At 14px against 20px the shape read as a speck. */
+  --es-glyph: 16px;
+  --es-collapsed-w: 16px;
+  --es-cue: 16px;
+  --es-gap: 11px;
+  /*
+   * Raised with the font, not left behind. These caps are in character counts really, so
+   * holding them fixed while the text grew would make the large size start ellipsising the
+   * site name EARLIER than the normal one does, which is backwards.
+   */
+  --es-pill-max: 460px;
+  --es-group-max: 280px;
+}
+
+:host([data-corner='tl']) { top: calc(var(--es-pill-block-spacing) + var(--es-edge)); left: var(--es-edge); }
+:host([data-corner='tr']) { top: calc(var(--es-pill-block-spacing) + var(--es-edge)); right: var(--es-edge); }
+:host([data-corner='bl']) { bottom: calc(var(--es-pill-block-spacing) + var(--es-edge)); left: var(--es-edge); }
+:host([data-corner='br']) { bottom: calc(var(--es-pill-block-spacing) + var(--es-edge)); right: var(--es-edge); }
+
+:host([hidden]) { display: none; }
+
+.root {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+:host([data-corner='tl']) .root,
+:host([data-corner='bl']) .root { align-items: flex-start; }
+
+:host([data-corner='tl']) .root,
+:host([data-corner='tr']) .root { flex-direction: column; }
+
+:host([data-corner='bl']) .root,
+:host([data-corner='br']) .root { flex-direction: column-reverse; }
+
+/* ------------------------------------------------------- the viewport frame */
+
+/*
+ * Frames the whole viewport in the environment colour, when that environment asks
+ * for it.
+ *
+ * `position: fixed` resolves against the viewport rather than the host element,
+ * which is itself fixed in a corner: only transform, filter, will-change and
+ * contain create a containing block for fixed descendants, and nothing on the way
+ * down here uses any of them. Keep it that way, or this collapses into the pill's
+ * corner.
+ *
+ * It is a border on a zero-content box rather than four positioned edges: one
+ * element, one colour to update, and no gaps at the corners to get wrong.
+ */
+.frame {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  border: var(--es-frame-width, 5px) solid var(--es-bg, #475569);
+  /* Non-negotiable. This covers the entire viewport, so anything other than
+     none would make the whole page unclickable. */
+  pointer-events: none;
+  /* Deliberately does NOT follow the pill's collapse state. The pill is a label you
+     glance at; the frame is an ambient reminder, and one that came and went would be
+     worse than no frame at all. */
+}
+
+/* A frame is a screen affordance. On paper it is just ink around the page. */
+@media print {
+  .frame { display: none; }
+}
+
+/* ---------------------------------------------------------------- the pill */
+
+.pill {
+  /*
+   * Positioning context for the disclosure cue, and nothing else.
+   *
+   * `position: relative` is safe here: only transform, filter, will-change and contain
+   * create a containing block for a FIXED descendant, and the frame is a sibling of .root
+   * rather than a child of this. See the note on .frame before adding any of those.
+   */
+  position: relative;
+  /* Reset the button element rather than trusting the page. */
+  appearance: none;
+  border: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  gap: var(--es-gap);
+  box-sizing: border-box;
+  height: var(--es-pill-h);
+  padding: var(--es-pill-pad);
+  max-width: var(--es-pill-max);
+
+  background: var(--es-bg, #475569);
+  color: var(--es-fg, #ffffff);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 4px 12px rgba(0, 0, 0, 0.16);
+
+  transition:
+    width 160ms cubic-bezier(0.32, 0.72, 0, 1),
+    padding 160ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 160ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:host([data-corner='tl']) .pill,
+:host([data-corner='bl']) .pill { border-radius: 0 999px 999px 0; }
+
+:host([data-corner='tr']) .pill,
+:host([data-corner='br']) .pill { border-radius: 999px 0 0 999px; }
+
+.pill:focus-visible {
+  outline: 2px solid var(--es-fg, #ffffff);
+  outline-offset: -5px;
+}
+
+.glyph {
+  flex: none;
+  font-size: var(--es-glyph);
+  /* The glyphs are geometric shapes; nudge for optical centering. */
+  transform: translateY(-0.5px);
+}
+
+.text {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.env {
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.group {
+  font-weight: 450;
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: var(--es-group-max);
+}
+
+/* --------------------------------------------------------- collapsed state */
+
+/*
+ * Collapsed is the resting state: a thin color chip at the edge of the
+ * viewport. Wide enough to read the color across a room, narrow enough that it
+ * never covers page content.
+ */
+:host([data-state='collapsed']) .pill {
+  width: var(--es-collapsed-w);
+  padding: 0;
+  overflow: hidden;
+}
+
+:host([data-state='collapsed'][data-corner='tl']) .pill,
+:host([data-state='collapsed'][data-corner='bl']) .pill { border-radius: 0 5px 5px 0; }
+
+:host([data-state='collapsed'][data-corner='tr']) .pill,
+:host([data-state='collapsed'][data-corner='br']) .pill { border-radius: 5px 0 0 5px; }
+
+:host([data-state='collapsed']) .pill > * {
+  opacity: 0;
+  visibility: hidden;
+}
+
+:host([data-state='expanded']) .pill > * {
+  opacity: 1;
+  transition: opacity 120ms linear 40ms;
+}
+
+/* ------------------------------------------------------ the disclosure cue */
+
+/*
+ * A vertical ellipsis on the collapsed chip, so it reads as something that opens rather than
+ * as a status light. Symmetric on purpose, so unlike the chevron it needs no per-corner flip.
+ *
+ * Absolutely positioned rather than a fourth flex child. The pill's other children keep
+ * their layout while hidden (visibility rather than display, so they fade back in without
+ * the box jumping), and inside a 9px wide box with overflow: hidden a flex item after them
+ * would simply be clipped off the end. Absolute centring works at any chip width, which
+ * matters because the width is a size setting now.
+ *
+ * Colour comes from --es-fg, not from white. Most sets use white text, but the Subtle set
+ * is dark ink on pale fills, and a white chevron would vanish on it.
+ */
+.cue {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--es-fg, #ffffff);
+  /* The pill itself takes the clicks. This is decoration on top of it. */
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms linear;
+}
+
+.cue svg {
+  display: block;
+  /*
+   * Sized by HEIGHT, with the width following from the viewBox aspect ratio. The cue is a
+   * tall narrow shape in a tall narrow chip, so height is the dimension worth controlling.
+   *
+   * The viewBox is 2 wide by 9 tall: dots of 2 units with 1.5 between them. That ratio is
+   * the thing to tune, not the height. A taller box for the same rendered height shrinks
+   * the dots, and below about 2.5 rendered pixels a circle stops looking round and starts
+   * looking like a small square.
+   */
+  height: var(--es-cue);
+  width: auto;
+}
+
+/*
+ * Both of these come after the generic `.pill > *` rules above, deliberately: they have the
+ * same specificity, so source order is what decides. Keep them last.
+ */
+:host([data-state='collapsed']) .pill > .cue {
+  /*
+   * Low enough to read as a hint, high enough to survive a saturated fill. Slightly higher
+   * than the chevron this replaced needed: three small dots put far less ink on the chip
+   * than a continuous stroke, and their antialiased edges lose more of it again.
+   */
+  opacity: 0.58;
+  visibility: visible;
+}
+
+:host([data-state='expanded']) .pill > .cue {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* ------------------------------------------------------------- environment list */
+
+.list {
+  pointer-events: auto;
+  box-sizing: border-box;
+  min-width: 232px;
+  max-width: 340px;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+
+  background: light-dark(#ffffff, #232326);
+  color: light-dark(#1c1917, #e7e5e4);
+  border: 1px solid light-dark(#e7e5e4, #3f3f46);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.list[hidden] { display: none; }
+
+/*
+ * The pill sits flush to the viewport edge on purpose, so its color reads as a
+ * marker on the edge of the screen. The list is a floating panel, so it gets a
+ * small inset from that edge instead of hugging it.
+ */
+:host([data-corner='tl']) .list,
+:host([data-corner='bl']) .list { margin-left: 8px; }
+
+:host([data-corner='tr']) .list,
+:host([data-corner='br']) .list { margin-right: 8px; }
+
+.list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: light-dark(#a8a29e, #71717a);
+}
+
+.row {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  border-radius: 7px;
+  text-align: left;
+}
+
+.row:hover,
+.row[aria-selected='true'] {
+  background: light-dark(#f5f5f4, #2e2e33);
+}
+
+.row:focus-visible {
+  outline: 2px solid light-dark(#1d4ed8, #93b4ff);
+  outline-offset: -2px;
+}
+
+.row-dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+.row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.row-env {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.row-host {
+  font-size: 11px;
+  opacity: 0.62;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-new,
+.row-copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.4;
+  padding: 3px 3px;
+  border-radius: 4px;
+}
+
+/* Faint until the row is hovered, then legible, then obvious on the icon itself. Two icons
+   at full strength on every row would compete with the environment colour, which is the one
+   thing in here that has to be read first. */
+.row:hover .row-new,
+.row:hover .row-copy { opacity: 0.7; }
+
+.row-new:hover,
+.row-copy:hover { opacity: 1; background: light-dark(#00000012, #ffffff1f); }
+
+.row-copy svg,
+.row-new svg { display: block; }
+
+.note {
+  padding: 7px 9px 4px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  opacity: 0.6;
+}
+
+/* ------------------------------------------------------------ preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  .pill { transition: none; }
+  :host([data-state='expanded']) .pill > * { transition: none; }
+}
+
+/* ------------------------------------------------- armed (guarded) row */
+
+/*
+ * An environment with the enter guard on takes a second, deliberate click. The
+ * armed state has to be unmistakable, since the whole point is to interrupt
+ * muscle memory.
+ */
+.row-armed {
+  background: light-dark(#fef2f2, #2a1a1a) !important;
+  box-shadow: inset 0 0 0 1px light-dark(#dc2626, #f87171);
+}
+
+.row-armed .row-env { color: light-dark(#b91c1c, #fca5a5); }

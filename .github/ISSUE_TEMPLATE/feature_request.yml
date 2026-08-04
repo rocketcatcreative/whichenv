@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest something WhichEnv should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Same rule as bug reports: **this issue is public and permanent.** If your example involves
+        real internal or client addresses, replace them with `example.com` style placeholders. The
+        shape is what matters, not the domain.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do that WhichEnv makes hard?
+      description: |
+        Describe the situation rather than the solution. A concrete setup that does not work today
+        is far more useful than a feature name, because it often turns out there is either an
+        existing way to do it or a better fix than the one you had in mind.
+      placeholder: |
+        Our production is www.example.com but the bare example.com also serves the site, so tabs on
+        the bare domain show no indicator.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you think should happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: Optional. Workarounds are useful signal about how much this costs you.
+
+  - type: markdown
+    attributes:
+      value: |
+        One thing that is settled and not up for change: **individual colors are not editable.** The
+        value of the indicator is that amber means staging on every site you work on, so the mapping
+        inside a set is fixed by design. Choosing between sets, and adding new sets, are both fair
+        requests.

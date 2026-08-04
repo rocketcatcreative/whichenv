@@ -1,0 +1,5 @@
+{
+  "//": "Solution file. Extension code and build tooling are typechecked as separate projects so that Node globals cannot leak into browser code, and DOM globals cannot leak into build scripts.",
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+}

@@ -1,0 +1,114 @@
+name: Bug report
+description: Something in WhichEnv does not work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Before you write anything: redact your URLs
+
+        WhichEnv is configured with the addresses of environments you work on, and some of those
+        are probably internal, private, or belong to a client. **This issue will be public and
+        permanently searchable.**
+
+        Replace real hostnames with placeholders that keep the shape of the problem:
+
+        | Instead of | Write |
+        |---|---|
+        | `https://staging.realclient.com` | `https://staging.example.com` |
+        | `https://acme-stg.wpenginepowered.com` | `https://acme-stg.host.example` |
+        | `http://localhost:7006` | leave it, loopback ports are not sensitive |
+
+        Keep the parts that matter to the bug: the scheme, whether there is a port, whether there
+        is a path prefix, whether a wildcard is involved. Those are what determine matching. The
+        actual domain almost never is.
+
+  - type: input
+    id: what-happened
+    attributes:
+      label: What happened
+      description: One sentence.
+      placeholder: The indicator does not appear on staging, but production is fine.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, in order. Use redacted URLs.
+      placeholder: |
+        1. Registered a group with prod https://example.com and staging https://staging.example.com
+        2. Opened https://staging.example.com/products?page=2
+        3. No indicator. Production shows one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: WhichEnv version
+      description: chrome://extensions, or the bottom of the extension's options page.
+      placeholder: 0.21.1
+    validations:
+      required: true
+
+  - type: input
+    id: chrome
+    attributes:
+      label: Chrome version and OS
+      description: chrome://version, first line, plus your operating system.
+      placeholder: Chrome 141 on macOS 15.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is it?
+      options:
+        - The on-page indicator
+        - Switching between environments
+        - The right-click menu
+        - The toolbar icon or badge
+        - The tab icon or tab groups
+        - Keyboard shortcuts or the address bar
+        - The settings page, or a group that will not save
+        - Import or export
+        - Something else, or not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: group-shape
+    attributes:
+      label: The group involved, redacted
+      description: |
+        Optional, but it resolves most matching bugs on the first reply. The settings page can copy
+        a single group as JSON. **Replace the hostnames before pasting.** Ports, paths, wildcards
+        and aliases are the parts that matter.
+      render: json
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: Any errors in the console
+      description: |
+        Optional. Two places worth checking: the page itself (right-click, Inspect, Console) and
+        the extension's own worker (chrome://extensions, Details, "service worker").
+      render: text
+
+  - type: checkboxes
+    id: redacted
+    attributes:
+      label: Confirm
+      options:
+        - label: I have replaced any real internal, private, or client hostnames above with placeholders.
+          required: true

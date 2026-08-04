@@ -1,0 +1,13 @@
+# Removes the "Open a blank issue" escape hatch, so every report arrives with the redaction warning
+# and the fields that make it answerable.
+#
+# Only ONE contact link here, deliberately. GitHub adds its own "Report a security vulnerability"
+# row to the chooser automatically whenever SECURITY.md exists, so listing it here as well produced
+# two identically labelled rows, one going to /security/policy and one to /security/advisories/new.
+# GitHub's own row is the better of the two: it leads to the policy, which explains scope before
+# linking the advisory form. Do not add a security contact link back.
+blank_issues_enabled: false
+contact_links:
+  - name: Question about using WhichEnv
+    url: https://github.com/rocketcatcreative/whichenv/discussions
+    about: Not sure whether something is a bug? Ask here first.

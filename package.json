@@ -1,0 +1,55 @@
+{
+  "name": "whichenv",
+  "version": "0.21.1",
+  "description": "Switch between a site's dev, staging, prod and local environments with a color coded on-page indicator.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rocketcatcreative/whichenv.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rocketcatcreative/whichenv/issues"
+  },
+  "homepage": "https://rocketcatcreative.com/whichenv/",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "marks": "node --import ./scripts/ts-resolve.mjs scripts/make-marks.mjs",
+    "from-bookmarks": "node --import ./scripts/ts-resolve.mjs scripts/from-bookmarks.mjs",
+    "store:shots": "node scripts/store-shots.mjs",
+    "store:tile": "node --import ./scripts/ts-resolve.mjs scripts/store-tile.mjs",
+    "palette:preview": "node --import ./scripts/ts-resolve.mjs scripts/palette-preview.mjs",
+    "build": "npm run clean && npm run build:main && npm run build:content && npm run verify:dist",
+    "build:main": "vite build",
+    "build:content": "vite build --config vite.content.config.ts",
+    "verify:dist": "node --import ./scripts/ts-resolve.mjs scripts/verify-dist.mjs",
+    "dev": "npm run clean && node scripts/dev.mjs",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node tests/e2e/smoke.mjs",
+    "test:e2e:editor": "node tests/e2e/editor.mjs",
+    "test:e2e:switching": "node tests/e2e/switching.mjs",
+    "test:e2e:popup": "node tests/e2e/popup.mjs",
+    "test:tabstrip": "node tests/e2e/tabstrip.mjs",
+    "test:e2e:csp": "node tests/e2e/csp.mjs",
+    "test:e2e:all": "npm run test:e2e && npm run test:e2e:editor && npm run test:e2e:switching && npm run test:e2e:popup && npm run test:e2e:csp",
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "check": "npm run typecheck && npm run test && npm run build && npm run zip && npm run test:e2e:all",
+    "zip": "npm run build && node scripts/zip.mjs",
+    "store:policy": "node scripts/store-policy.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.2.2",
+    "@types/node": "^26.1.2",
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

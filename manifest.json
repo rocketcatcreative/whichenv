@@ -1,0 +1,99 @@
+{
+  "manifest_version": 3,
+  "name": "WhichEnv: Environment Indicator and Switcher",
+  "short_name": "WhichEnv",
+  "version": "0.21.1",
+  "description": "See which environment you are on at a glance, and switch between dev, staging, prod and local at the same path.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "WhichEnv",
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/index.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "scripting",
+    "tabGroups"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "content/indicator.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "marks/*.png"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "commands": {
+    "open-switcher": {
+      "suggested_key": {
+        "default": "Alt+Shift+E"
+      },
+      "description": "Open the environment switcher"
+    },
+    "hide-indicator": {
+      "suggested_key": {
+        "default": "Alt+Shift+H"
+      },
+      "description": "Hide the indicator on this tab until reload"
+    },
+    "switch-1": {
+      "description": "Switch to environment 1 in this group"
+    },
+    "switch-2": {
+      "description": "Switch to environment 2 in this group"
+    },
+    "switch-3": {
+      "description": "Switch to environment 3 in this group"
+    },
+    "switch-4": {
+      "description": "Switch to environment 4 in this group"
+    }
+  },
+  "omnibox": {
+    "keyword": "env"
+  },
+  "incognito": "split"
+}

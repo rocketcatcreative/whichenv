@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# Build output
+dist/
+dist.zip
+build/
+*.crx
+*.pem
+release/
+
+# Test and coverage output
+coverage/
+.nyc_output/
+test-results/
+tests/e2e/screenshots/
+playwright-report/
+blob-report/
+.playwright/
+
+whichenv-groups.json
+whichenv-from-bookmarks.json
+*-groups.json
+*-bookmarks.json
+
+notes/
+
+store/*
+!store/privacy-policy.md
+!store/demo-page.html
+
+docs/palette-preview.html
+
+.es-sync.tgz
+_to_delete/
+
+# Caches
+.cache/
+.vite/
+.tmp/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+store/upload-credentials.json
+
+# Editors and IDEs
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini

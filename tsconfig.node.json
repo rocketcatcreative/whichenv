@@ -1,0 +1,35 @@
+{
+  "//": "Build tooling: Vite configs and the scripts/ helpers. Node globals only, no DOM.",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
+  },
+  "//include": "The four core modules the scripts import through the ts-resolve hook, listed one by one rather than as src/core/**. This project has no chrome types by design, and these four are the pure ones: palette, marks, url and schema (which imports only palette and url). Widening it to the whole directory pulls in storage, settings and permissions and fails on `chrome`.",
+  "include": [
+    "vite.config.ts",
+    "vite.content.config.ts",
+    "scripts/**/*.mjs",
+    "src/core/palette.ts",
+    "src/core/marks.ts",
+    "src/core/url.ts",
+    "src/core/schema.ts"
+  ]
+}
