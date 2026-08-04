@@ -1,0 +1,97 @@
+# Discussion category form for the Q&A category.
+#
+# The filename must match the category slug, not its display name. Check it by opening the
+# category and reading the URL: /discussions/categories/q-a means this file is q-a.yml. If the
+# slug is anything else, rename this file to match or the form is silently ignored.
+#
+# Discussion forms use the same schema as the issue forms in ../ISSUE_TEMPLATE, with one
+# difference worth knowing: only `title`, `labels` and `body` are supported at the top level.
+# There is no `name` or `description`, because the category supplies both.
+title: "[Question] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Before you write anything: redact your URLs
+
+        WhichEnv is configured with the addresses of environments you work on, and some of those
+        are probably internal, private, or belong to a client. **This discussion will be public,
+        permanent, and indexed by search engines.**
+
+        Replace real hostnames with placeholders that keep the shape of the problem:
+
+        | Instead of | Write |
+        |---|---|
+        | `https://staging.realclient.com` | `https://staging.example.com` |
+        | `https://acme-stg.wpenginepowered.com` | `https://acme-stg.host.example` |
+        | `http://localhost:7006` | leave it, loopback ports are not sensitive |
+
+        Keep the parts that matter: the scheme, whether there is a port, whether there is a path
+        prefix, whether a wildcard is involved. Those are what determine matching. The actual
+        domain almost never is.
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Is this actually a question?
+
+        - **Something is broken** and you can describe steps that reproduce it, open a
+          [bug report](https://github.com/rocketcatcreative/whichenv/issues/new/choose) instead.
+          The form asks for the details that make a matching problem answerable in one reply.
+        - **You found a security issue**, please do not post it here. See the
+          [security policy](https://github.com/rocketcatcreative/whichenv/security/policy).
+        - Not sure which it is? Ask here. Sorting it out is the point.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do
+      description: What you want to happen, and what happens instead. Use redacted URLs.
+      placeholder: |
+        I have production and staging in one group and both get labelled correctly, but I cannot
+        work out how to add our preview deploys, which get a different hostname on every build.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is it about
+      options:
+        - Setting up a group or an environment
+        - Matching, why a tab is or is not recognized
+        - Switching between environments
+        - Ports, localhost, or loopback addresses
+        - Wildcards or preview deploys
+        - Permissions, or the prompt when saving a group
+        - The indicator, frame, tab icon, or badge
+        - Colors and color sets
+        - Import, export, or sync
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: group-shape
+    attributes:
+      label: The group involved, redacted
+      description: |
+        Optional, and usually the fastest route to a useful answer for anything about matching.
+        The settings page can copy a single group as JSON. **Replace the hostnames before
+        pasting.** Ports, paths, wildcards and aliases are the parts that matter.
+      render: json
+
+  - type: input
+    id: version
+    attributes:
+      label: WhichEnv version
+      description: Optional. chrome://extensions, or the bottom of the extension's options page.
+      placeholder: 0.21.1
+
+  - type: checkboxes
+    id: redacted
+    attributes:
+      label: Confirm
+      options:
+        - label: I have replaced any real internal, private, or client hostnames above with placeholders.
+          required: true

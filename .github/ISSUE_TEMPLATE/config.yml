@@ -9,5 +9,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question about using WhichEnv
-    url: https://github.com/rocketcatcreative/whichenv/discussions
+    url: https://github.com/rocketcatcreative/whichenv/discussions/categories/q-a
     about: Not sure whether something is a bug? Ask here first.
