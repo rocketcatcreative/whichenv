@@ -85,6 +85,16 @@ describe('syncContextMenus', () => {
     expect(created()).toHaveLength(8);
   });
 
+  // Reloading the extension fires onInstalled and a group change within milliseconds. Run
+  // side by side, both rebuilds cleared the menu before either created anything, then both
+  // created the same ids.
+  it('does not collide when rebuilds overlap', async () => {
+    await expect(
+      Promise.all([syncContextMenus(), syncContextMenus(), syncContextMenus()]),
+    ).resolves.toBeDefined();
+    expect(created()).toHaveLength(8);
+  });
+
   it('clears everything when the last group goes away', async () => {
     await syncContextMenus();
     await syncContextMenus([]);

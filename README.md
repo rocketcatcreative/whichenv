@@ -134,9 +134,24 @@ up on one machine will ask for access again on the next, since permissions are
 per-profile-per-machine rather than synced.
 
 **Try it in about ten seconds.** Open a site you work on, click the toolbar icon, and
-choose **Create a group from this tab**. It works out which environment you are
-looking at, names the group, and guesses the sibling URLs for you to check. Tick the
-ones that are right, save, allow access, and you are done.
+choose **Create a group from this tab**. It names the group and fills in the URL you are
+actually on. Add a row for each of your other environments, paste their URLs, save, allow
+access, and you are done.
+
+It does not try to work out what your staging or dev URLs are. It could construct
+`staging.<your-domain>` and often be wrong, and a plausible wrong URL is worse than an
+empty field: it reads as authoritative, so it gets saved unread and becomes a switch
+target pointing somewhere nobody checked.
+
+**Open all of them at once.** Both the toolbar popup and the on-page switcher have
+**Open all environments**. It puts the tab you are on and every other environment of that
+group into one Chrome tab group, in pipeline order, so the leftmost tab is always the
+safest environment and the rightmost is always production. Tabs already showing one of
+those URLs are pulled in rather than opened twice, so pressing it again is safe. New tabs
+open in the background, so focus stays where you left it.
+
+If any environment in the set has the enter guard on, the button arms first and takes a
+second click. One confirm for the whole action, naming which environments caused it.
 
 **In the address bar,** type `env` then a space to switch by name: `env staging`.
 
@@ -244,7 +259,8 @@ src/core/                pure logic and storage, fully unit tested
   settings.ts            global settings: corner, size, color set, markers, collapse
   messages.ts            typed protocol between the worker and the UI
   permissions.ts         per-origin host access: patterns, request, prune
-  guess.ts               infer a group from a single URL
+  naming.ts              name a group from a single URL
+  open-all.ts            which environments to open at once, and in what order
   config.ts              export, import, and import planning
   pending.ts             popup to options draft handoff
   palette.ts             environment metadata plus four selectable color sets

@@ -25,6 +25,7 @@ import { syncRegistrations } from './scripts';
 import { registerOmnibox } from './omnibox';
 import { registerContextMenus, syncContextMenus } from './context-menu';
 import { forgetWindow, groupTab } from './tab-groups';
+import { openAllEnvironments } from './open-all';
 
 const VERSION = chrome.runtime.getManifest().version;
 
@@ -244,6 +245,52 @@ async function performSwitch(
   return { type: 'switched', ok: true, url: target.url };
 }
 
+/**
+ * Validates an open-all request and hands it to `open-all.ts`.
+ *
+ * Same shape as `performSwitch`: this function's job is deciding whether the request still
+ * describes reality, not doing the work. The set of destinations is recomputed from the URL
+ * the tab is on right now, so a stale or tampered-with request cannot open anything the
+ * user's own config does not describe.
+ */
+async function performOpenAll(
+  request: Extract<Request, { type: 'openAll' }>,
+  senderTabId: number | undefined,
+  senderWindowId: number | undefined,
+): Promise<Response> {
+  const entry = lookup(await getIndex(), request.url);
+  if (!entry || entry.groupId !== request.groupId) {
+    return { type: 'error', message: 'This tab no longer matches that group.' };
+  }
+
+  const groups = await listGroups();
+  const match = resolveMatch(groups, entry);
+  if (!match) return { type: 'error', message: 'That group no longer exists.' };
+
+  // The popup is not a tab, so a message from it carries no sender and the active tab has to
+  // be asked for. `lastFocusedWindow` rather than `currentWindow`: a worker has no current
+  // window, and the popup is by definition attached to the focused one.
+  const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const originTabId = senderTabId ?? active?.id;
+  const windowId = senderWindowId ?? active?.windowId;
+  if (originTabId === undefined || windowId === undefined) {
+    return { type: 'error', message: 'Could not work out which window to open these in.' };
+  }
+
+  const settings = await getSettings();
+  const result = await openAllEnvironments(
+    match,
+    request.url,
+    originTabId,
+    windowId,
+    settings.paletteId,
+  );
+
+  return result === null
+    ? { type: 'error', message: 'This group has no other environments set up yet.' }
+    : { type: 'openedAll', opened: result.opened, adopted: result.adopted };
+}
+
 chrome.runtime.onMessage.addListener((message: Request, sender, sendResponse) => {
   const tabId = sender.tab?.id;
   const windowId = sender.tab?.windowId;
@@ -267,6 +314,10 @@ chrome.runtime.onMessage.addListener((message: Request, sender, sendResponse) =>
 
         case 'switch':
           sendResponse(await performSwitch(message, tabId, windowId));
+          return;
+
+        case 'openAll':
+          sendResponse(await performOpenAll(message, tabId, windowId));
           return;
 
         case 'hideForTab':

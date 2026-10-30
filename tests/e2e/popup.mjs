@@ -120,12 +120,12 @@ try {
   );
 
   /**
-   * The guessed siblings, now offered as add-buttons carrying their guessed URL.
+   * The add-buttons, which no longer carry a guessed URL.
    *
-   * They used to be prefilled rows left switched off, because a guessed hostname that does not
-   * exist would otherwise be a switch target that goes nowhere. Removing the on/off checkbox
-   * left nowhere to render a switched-off row, so the guess moved onto the button instead. The
-   * property that mattered is unchanged: the guess is visible, and taking it is deliberate.
+   * They used to: create-from-tab generated `staging.<apex>` and friends, and the button
+   * showed the guess so taking it was one click. That came out, because those hostnames were
+   * wrong far more often than right and a plausible wrong URL gets saved unread. The buttons
+   * are now bare, and the URL is yours to paste.
    */
   const offered = Object.fromEntries(
     await options.locator('.add-env .btn').evaluateAll((els) =>
@@ -137,29 +137,30 @@ try {
   );
 
   check(
-    'siblings are guessed from the apex and offered with their URLs',
-    offered.staging === 'https://staging.shop.example.com' &&
-      offered.dev === 'https://dev.shop.example.com',
-    JSON.stringify([offered.staging, offered.dev]),
-  );
-  check(
-    'a local row is offered with a free port',
-    /^http:\/\/localhost:\d+$/.test(offered.local ?? ''),
-    offered.local,
-  );
-  check(
-    'and a slot with nothing to guess is offered bare',
-    offered.qa === '' && offered.preview === '',
-    JSON.stringify([offered.preview, offered.qa]),
+    'every environment is offered bare, with no invented URL',
+    ['local', 'dev', 'staging', 'preview', 'qa'].every((key) => offered[key] === ''),
+    JSON.stringify(offered),
   );
 
-  // Taking one is a single click, and it arrives with the guess already filled in.
+  // Adding one gives an empty field to type into, not a guess to notice and correct.
   await options.click('.add-env [data-add-env="staging"]');
   await options.waitForSelector('.env-row[data-env="staging"]');
   check(
-    'accepting a guess fills the row in for you',
-    (await options.inputValue('.env-row[data-env="staging"] .url-input')) ===
-      'https://staging.shop.example.com',
+    'adding an environment gives an empty URL field',
+    (await options.inputValue('.env-row[data-env="staging"] .url-input')) === '',
+    await options.inputValue('.env-row[data-env="staging"] .url-input'),
+  );
+
+  // The one prefill that survived, and the only one that is a convention rather than a claim
+  // about someone's infrastructure.
+  await options.click('.add-env [data-add-env="local"]');
+  await options.waitForSelector('.env-row[data-env="local"]');
+  check(
+    'a local row still arrives on a free loopback port',
+    /^http:\/\/localhost:\d+$/.test(
+      await options.inputValue('.env-row[data-env="local"] .url-input'),
+    ),
+    await options.inputValue('.env-row[data-env="local"] .url-input'),
   );
 
   await options
@@ -176,17 +177,36 @@ try {
   );
   await options.close();
 
-  // ---- a staging URL is recognised as staging
+  // ---- the hostname is no longer read for environment hints
+  //
+  // A staging subdomain used to be detected and the row labelled Staging. Detection went with
+  // the URL guessing: the same label list that spotted `staging.` was also what generated
+  // `staging.<apex>` for every other row. What is left is honest about it, saying which slot
+  // the URL lands in before you click rather than quietly picking one.
   popup = await openPopup('https://staging.acme.example/', 'Acme');
   const stagingBlurb = (await popup.locator('.card').nth(1).textContent()) ?? '';
-  check('recognises a staging subdomain', stagingBlurb.includes('Staging'), stagingBlurb.slice(0, 60));
+  check(
+    'says which slot a staging URL lands in, rather than guessing the environment',
+    stagingBlurb.includes('Production') && stagingBlurb.includes('https://staging.acme.example'),
+    stagingBlurb.slice(0, 110),
+  );
   await popup.close();
 
-  // Laravel Valet and friends serve `.test` hostnames, so that suffix is deliberately
-  // read as local development rather than as a public site.
+  // The label-stripping still happens, but only for NAMING: the group is called "Acme", not
+  // "Staging". That is the half of the old guesser worth keeping.
+  check(
+    'still strips the environment label when naming the group',
+    stagingBlurb.includes('Acme'),
+    stagingBlurb.slice(0, 110),
+  );
+
   popup = await openPopup('http://acme.test/', 'Acme');
   const valetBlurb = (await popup.locator('.card').nth(1).textContent()) ?? '';
-  check('reads a .test host as local', valetBlurb.includes('Local'), valetBlurb.slice(0, 60));
+  check(
+    'fills in a .test host exactly as it is',
+    valetBlurb.includes('http://acme.test'),
+    valetBlurb.slice(0, 110),
+  );
   await popup.close();
 
   // ---- a non-http page is ignored, and says why

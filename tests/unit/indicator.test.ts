@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTristate, resolveIndicator } from '../../src/core/indicator';
+import { applyTristate, resolveIndicator, withHidden } from '../../src/core/indicator';
 import { DEFAULT_SETTINGS, type Settings } from '../../src/core/settings';
 import type { EnvGroup, Tristate } from '../../src/core/schema';
 import { acmeGroup } from '../helpers/groups';
@@ -104,5 +104,35 @@ describe('resolveIndicator', () => {
         expect(resolved.frame, `${state} over ${fallback}`).toBe(expected[state][index]);
       }
     }
+  });
+});
+
+describe('withHidden', () => {
+  it('hides a group that overrides nothing', () => {
+    expect(withHidden(withIndicator(undefined), true).indicator).toEqual({ hidden: true });
+  });
+
+  it('keeps the frame and tab icon overrides when hiding and showing', () => {
+    const group = withIndicator({ frame: 'on', tabIcon: 'off' });
+    expect(withHidden(group, true).indicator).toEqual({ frame: 'on', tabIcon: 'off', hidden: true });
+    expect(withHidden(withHidden(group, true), false)).toEqual(group);
+  });
+
+  // The editor never stores `hidden: false` or an empty `indicator`, so neither may this.
+  it('round-trips a plain group back to exactly what it was', () => {
+    const group = withIndicator(undefined);
+    const back = withHidden(withHidden(group, true), false);
+    expect(back).toEqual(group);
+    expect('indicator' in back).toBe(false);
+  });
+
+  it('hides the group as far as the resolver is concerned', () => {
+    expect(resolveIndicator(withHidden(withIndicator(undefined), true), settings()).hidden).toBe(true);
+  });
+
+  it('leaves the input untouched', () => {
+    const group = withIndicator({ frame: 'on' });
+    withHidden(group, true);
+    expect(group.indicator).toEqual({ frame: 'on' });
   });
 });

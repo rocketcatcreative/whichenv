@@ -218,6 +218,100 @@ try {
   await options.waitForTimeout(250);
   await page.bringToFront();
 
+  // ---- "open all environments" gathers the whole group into one ordered tab group
+  //
+  // The row is last in the list, so one ArrowUp from the freshly-opened list wraps onto it.
+  // Driven by keyboard for the same reason every other interaction here is: the list lives in
+  // a closed shadow root and no selector reaches into it.
+  await page.bringToFront();
+  await page.goto(START, { waitUntil: 'load' });
+  await page.waitForSelector(HOST_TAG, { timeout: 5000 });
+  await page.hover(HOST_TAG);
+  await page.click(HOST_TAG);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(1800);
+
+  const gathered = await options.evaluate(async () => {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    return tabs
+      .filter((tab) => tab.groupId !== undefined && tab.groupId !== -1)
+      .sort((a, b) => a.index - b.index)
+      .map((tab) => tab.url ?? '');
+  });
+
+  // Three, not two: this group has a production row pointing at prod.invalid, and open-all
+  // opens every environment rather than only the ones that resolve.
+  check(
+    'open all gathers every environment into one group',
+    gathered.length === 3,
+    JSON.stringify(gathered),
+  );
+
+  // Pipeline order, not the group's configured order: leftmost is always the safest
+  // environment and rightmost is always the riskiest, in every group. Production reads as an
+  // empty URL because it is an origin the extension holds no host permission for, which is
+  // exactly why it has to be identified by position here.
+  check(
+    'and orders them local to prod',
+    gathered[0]?.includes('localhost') === true &&
+      gathered[1]?.includes('127.0.0.1') === true &&
+      gathered[2] === '',
+    JSON.stringify(gathered),
+  );
+  check(
+    'the tab you pressed it from stays where it was',
+    page.url() === START,
+    page.url(),
+  );
+
+  const afterOpenAll = await tabGroups();
+  check(
+    'open all reuses the existing group rather than making a second',
+    afterOpenAll.length === 1 && afterOpenAll[0]?.title === 'Round Trip',
+    JSON.stringify(afterOpenAll),
+  );
+  await options.screenshot({ path: shotPath('25-open-all') });
+
+  // Pressing it again must not double up: a tab already showing a destination is adopted.
+  await page.bringToFront();
+  await page.hover(HOST_TAG);
+  await page.click(HOST_TAG);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(1800);
+
+  const twice = await options.evaluate(async () => {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const urls = tabs.map((tab) => tab.url ?? '');
+    return {
+      local: urls.filter((url) => url.includes('localhost:8330')).length,
+      dev: urls.filter((url) => url.includes('127.0.0.1:8330')).length,
+    };
+  });
+
+  // Only the origins the extension can READ can be adopted, which is every origin a real
+  // user has granted. prod.invalid is deliberately not one of them, so it is left out of
+  // this count rather than asserted on: a second copy of it is the documented cost of not
+  // holding permission, not a regression.
+  check(
+    'pressing open all twice adopts the open tabs instead of duplicating them',
+    twice.local === 1 && twice.dev === 1,
+    JSON.stringify(twice),
+  );
+
+  // Back to one tab so the checks after this one see what they expect.
+  for (const candidate of ctx.pages()) {
+    const url = candidate.url();
+    if (url.includes('127.0.0.1') || url.includes('prod.invalid') || url === 'about:blank') {
+      if (candidate !== page && candidate !== options) await candidate.close().catch(() => {});
+    }
+  }
+  await page.bringToFront();
+  await page.waitForTimeout(300);
+
   // ---- editing groups refreshes open tabs without a reload
   await options.bringToFront();
   await options.click('.group-card .btn-edit');
@@ -366,6 +460,74 @@ try {
     'an exact host in another group beats the wildcard that also covers it',
     (await resolvedColor()) === '#15803D',
     await resolvedColor(),
+  );
+
+  // ---- the popup's switch hides the indicator for the group you are on, and it sticks
+  //
+  // Driven through the real popup control rather than a storage write, so the label, the
+  // checkbox and the group write are all covered. The popup is opened as a tab with the
+  // active-tab query faked, the same way tests/e2e/popup.mjs does it. At this point the
+  // page is on localhost:PORT, which resolves to "Exact Wins".
+  const ON_PAGE = `http://localhost:${PORT}/deep/page.html`;
+  const POPUP = `chrome-extension://${id}/src/popup/index.html`;
+  const TOGGLE = '[data-setting="groupHidden"] input';
+  const openPopupFor = async (url) => {
+    const popup = await ctx.newPage();
+    watchErrors(popup, errors, 'popup');
+    await popup.addInitScript(`
+      const realQuery = chrome.tabs.query.bind(chrome.tabs);
+      chrome.tabs.query = (info) =>
+        info && info.active
+          ? Promise.resolve([{ id: 4242, windowId: 1, url: ${JSON.stringify(url)}, title: 'Page' }])
+          : realQuery(info);
+    `);
+    await popup.goto(POPUP);
+    await popup.waitForSelector(TOGGLE);
+    return popup;
+  };
+  const hostCount = () => wild.locator(HOST_TAG).count();
+  const storedIndicator = (gid) =>
+    options.evaluate(async (key) => (await chrome.storage.sync.get(key))[key]?.indicator ?? null, `grp:${gid}`);
+
+  let popup = await openPopupFor(ON_PAGE);
+  const note = popup.locator('[data-setting="groupHidden"] .toggle-note');
+  check('the popup offers the indicator switch, on by default', await popup.locator(TOGGLE).isChecked());
+  check('with no warning while it is on', !(await note.isVisible()));
+
+  await popup.locator(TOGGLE).click();
+  check('switching it off names the group and says what still shows', (await note.textContent())?.includes('Exact Wins') === true, (await note.textContent()) ?? '');
+  await popup.close();
+
+  await wild.waitForFunction((tag) => !document.querySelector(tag), HOST_TAG, { timeout: 5000 })
+    .catch(() => {});
+  check('switching off removes the indicator from an open page, no reload', (await hostCount()) === 0);
+
+  // The same flag the editor's "Hide the indicator on this site" writes, on this group only.
+  check('it is stored on the group the tab is in', (await storedIndicator(exactId))?.hidden === true, JSON.stringify(await storedIndicator(exactId)));
+  check(
+    'and on no other group',
+    (await storedIndicator(groupId))?.hidden !== true && (await storedIndicator(wildId))?.hidden !== true,
+  );
+
+  const offBadge = await badgeFor(`localhost:${PORT}/deep`);
+  check('the toolbar badge keeps showing the environment while off', offBadge?.text === 'LOC', offBadge?.text ?? 'none');
+
+  await wild.reload({ waitUntil: 'load' });
+  await wild.waitForTimeout(1500);
+  check('it stays off across a reload', (await hostCount()) === 0);
+
+  popup = await openPopupFor(ON_PAGE);
+  check('the popup remembers it is off', !(await popup.locator(TOGGLE).isChecked()));
+  await popup.locator(TOGGLE).click();
+  await popup.close();
+
+  await wild.waitForSelector(HOST_TAG, { timeout: 5000 }).catch(() => {});
+  await wild.waitForTimeout(500);
+  check('switching back on brings the indicator back without a reload', (await hostCount()) === 1, `${await hostCount()} host(s)`);
+  check(
+    'and leaves the group exactly as the editor would store it',
+    (await storedIndicator(exactId)) === null,
+    JSON.stringify(await storedIndicator(exactId)),
   );
 
   check('no console errors', errors.length === 0, errors.join(' | ') || 'clean');

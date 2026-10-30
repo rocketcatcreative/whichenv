@@ -1,0 +1,139 @@
+<!doctype html>
+<!--
+  The storefront backdrop, used only for screenshot 01.
+
+  Screenshots 02 and 03 use `demo-page.html`, an admin-style orders table. This one exists
+  because the FIRST screenshot is the one that has to say what the extension is for to somebody
+  who has never heard of it, and an admin table reads as "internal tool". A shop front reads as
+  "this is the live site your customers see", which is the thing you must not mistake for
+  staging. Same extension, same group, different backdrop.
+
+  Deliberately fictional and unbranded. "Acme" is the standard placeholder and nothing here
+  imitates a real shop. The brand reads "Acme Supply Co." while the WhichEnv group is called
+  "Acme Storefront", which is how it works in real use: the group name is your label for the
+  project, not the site's own name.
+
+  LAYOUT IS LOAD-BEARING. Shot 01 shows the pill EXPANDED WITH ITS LIST CLOSED, so the only
+  reserved area is the pill itself: roughly y=43 to y=75 at a 640x400 viewport, running to the
+  right edge. The hero card below it starts clear of that band.
+
+  An earlier version of this shot had the switcher open, which covered the top right 300x250 and
+  is why this page once kept that whole corner empty. If it is ever opened here again, the hero
+  card is what it will cover. Check the pill band again if the pill grows: it is capped at 320px
+  wide at this size, 460px at the large indicator size.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Acme Supply Co. — Everyday essentials</title>
+    <style>
+      :root {
+        --ink: #17150f;
+        --muted: #6d6459;
+        --line: #e8e3da;
+        --paper: #faf7f2;
+        --accent: #1f5c4a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+      }
+      header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 13px 22px; background: #fff;
+        border-bottom: 1px solid var(--line);
+      }
+      .logo { width: 22px; height: 22px; border-radius: 7px; flex: none;
+              background: linear-gradient(140deg, #2f8f70, #1f5c4a); }
+      .brand { font-weight: 680; letter-spacing: -0.015em; font-size: 16px; }
+      nav { display: flex; gap: 17px; margin-left: 22px; font-size: 13.5px; color: var(--muted); }
+      nav .on { color: var(--ink); font-weight: 600; }
+
+      .hero { position: relative; overflow: hidden;
+              background: linear-gradient(120deg, #f3efe7 0%, #e9efe9 55%, #dfe9e4 100%); }
+      .hero-inner { padding: 21px 22px 19px; max-width: 330px; }
+      .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+                 text-transform: uppercase; color: var(--accent); margin-bottom: 7px; }
+      h1 { font-size: 26px; line-height: 1.13; margin: 0 0 8px; letter-spacing: -0.028em; }
+      .hero p { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; max-width: 300px; }
+      .cta { display: flex; gap: 9px; }
+      .btn { font-size: 13px; font-weight: 600; padding: 8px 15px; border-radius: 8px;
+             border: 1px solid transparent; }
+      .btn-solid { background: var(--accent); color: #fff; }
+      .btn-ghost { border-color: #c9c2b6; color: var(--ink); background: #ffffffaa; }
+
+      /* One soft shape for depth, sitting behind the hero card rather than instead of it. */
+      .blob { position: absolute; border-radius: 50%; pointer-events: none;
+              width: 188px; height: 188px; right: 4px; top: 18px;
+              background: radial-gradient(circle at 36% 34%, #d3e4d9, #aecfbb); opacity: .7; }
+
+      /* The hero product. `top` is measured from the hero, which starts at y=49, so 42 here puts
+         the card at y=91: clear of the pill band that ends at y=75, with room to read as a gap
+         rather than a collision. It stops well short of the hero's bottom edge too, so the
+         product strip underneath never crowds it. */
+      .feature {
+        position: absolute; right: 30px; top: 42px; width: 152px;
+        background: #fff; border-radius: 12px; overflow: hidden;
+        border: 1px solid #ffffffcc;
+        box-shadow: 0 10px 24px -8px #1715210f, 0 2px 6px -2px #17152114;
+      }
+      .feature .shot { height: 104px;
+        background: linear-gradient(150deg, #e3cfae 0%, #cfae86 55%, #b8916a 100%); }
+      .feature .meta { padding: 8px 11px 10px; }
+      .feature .fname { font-size: 12.5px; font-weight: 650; letter-spacing: -0.01em; }
+      .feature .fprice { font-size: 12px; color: var(--muted); margin-top: 1px; }
+      .feature .flag { position: absolute; top: 9px; left: 9px; background: #ffffffe8;
+        color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+        text-transform: uppercase; padding: 3px 7px; border-radius: 999px; }
+
+      .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px 22px 0; }
+      .card { display: flex; align-items: center; gap: 9px; background: #fff;
+              border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; }
+      .swatch { width: 34px; height: 34px; border-radius: 7px; flex: none; }
+      .s1 { background: linear-gradient(135deg, #d9c3a3, #bf9f77); }
+      .s2 { background: linear-gradient(135deg, #b9cfc2, #86ad99); }
+      .s3 { background: linear-gradient(135deg, #cdc7dd, #a49ac4); }
+      .name { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+      .price { font-size: 12px; color: var(--muted); }
+      .trust { margin: 0; padding: 9px 22px 0; font-size: 11.5px; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="logo"></span>
+      <span class="brand">Acme Supply Co.</span>
+      <nav><span class="on">Shop</span><span>Collections</span><span>Journal</span><span>About</span></nav>
+    </header>
+
+    <section class="hero">
+      <span class="blob"></span>
+      <div class="feature">
+        <div class="shot"></div>
+        <span class="flag">Best seller</span>
+        <div class="meta">
+          <div class="fname">The Weekender</div>
+          <div class="fprice">$184</div>
+        </div>
+      </div>
+      <div class="hero-inner">
+        <div class="eyebrow">New season</div>
+        <h1>Everyday goods,<br />built to outlast you.</h1>
+        <p>Canvas, brass and solid oak. Made in small runs, shipped free over $75.</p>
+        <div class="cta">
+          <span class="btn btn-solid">Shop the range</span>
+          <span class="btn btn-ghost">Lookbook</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="strip">
+      <div class="card"><span class="swatch s1"></span><span><span class="name">Waxed Tote</span><br /><span class="price">$128</span></span></div>
+      <div class="card"><span class="swatch s2"></span><span><span class="name">Field Apron</span><br /><span class="price">$64</span></span></div>
+      <div class="card"><span class="swatch s3"></span><span><span class="name">Oak Caddy</span><br /><span class="price">$92</span></span></div>
+    </div>
+    <p class="trust">Free shipping over $75 · 30-day returns · Carbon-neutral delivery</p>
+  </body>
+</html>

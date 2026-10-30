@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   CUSTOM_ENV_KEYS,
   DEFAULT_PALETTE_ID,
-  GUESSABLE_ENV_KEYS,
   NEW_GROUP_ENV_KEYS,
   ENV_KEYS,
   ENV_META,
@@ -58,23 +57,18 @@ describe('environment metadata', () => {
     }
   });
 
-  // Three lists over the same six keys, each answering a different question. They were one
-  // constant until a blank group stopped starting with four environments, at which point
-  // sharing them would have silently reduced create-from-tab to guessing prod alone.
+  // Two lists over the same six keys. There used to be a third, GUESSABLE_ENV_KEYS, which
+  // create-from-tab filled in with invented hostnames. That came out; a new group and a
+  // group made from a tab now start the same way, with the one row you have a real URL for.
   it('starts a blank group with production alone', () => {
     expect(NEW_GROUP_ENV_KEYS).toEqual(['prod']);
   });
 
-  it('guesses the four common environments from a tab', () => {
-    expect(GUESSABLE_ENV_KEYS).toEqual(['local', 'dev', 'staging', 'prod']);
-  });
-
-  it('accounts for every key between the guessable ones and the spare slots', () => {
-    expect([...GUESSABLE_ENV_KEYS, ...CUSTOM_ENV_KEYS].sort()).toEqual([...ENV_KEYS].sort());
-  });
-
-  it('only ever starts a group with something it would also guess', () => {
-    for (const key of NEW_GROUP_ENV_KEYS) expect(GUESSABLE_ENV_KEYS).toContain(key);
+  it('draws both lists from the environment keys, with no overlap', () => {
+    for (const key of [...NEW_GROUP_ENV_KEYS, ...CUSTOM_ENV_KEYS]) {
+      expect(ENV_KEYS, key).toContain(key);
+    }
+    for (const key of CUSTOM_ENV_KEYS) expect(NEW_GROUP_ENV_KEYS).not.toContain(key);
   });
 
   it('describes both spare slots as spare, since nothing else labels them now', () => {
@@ -85,9 +79,7 @@ describe('environment metadata', () => {
 
   it('orders environments from lowest risk to highest', () => {
     expect(ENV_KEYS.indexOf('local')).toBeLessThan(ENV_KEYS.indexOf('prod'));
-    expect([...GUESSABLE_ENV_KEYS].reverse().sort(byPipelineOrder)).toEqual([
-      'local', 'dev', 'staging', 'prod',
-    ]);
+    expect([...ENV_KEYS].reverse().sort(byPipelineOrder)).toEqual([...ENV_KEYS]);
   });
 
   it('recognizes valid keys and rejects anything else', () => {

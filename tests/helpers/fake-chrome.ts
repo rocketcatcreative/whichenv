@@ -20,6 +20,8 @@ export interface TabRecord {
   active?: boolean;
   openerTabId?: number;
   groupId?: number;
+  /** A tab still loading reports its destination here rather than in `url`. */
+  pendingUrl?: string;
 }
 
 export interface TabGroupRecord {
@@ -181,6 +183,10 @@ export function createFakeChrome(): FakeChrome {
 
   const badges = new Map<number, BadgeState>();
   const tabGroups: TabGroupRecord[] = [];
+
+  /** A tab's position among the tabs of its own window, which is what Chrome calls `index`. */
+  const indexInWindow = (tab: TabRecord): number =>
+    tabs.filter((candidate) => candidate.windowId === tab.windowId).indexOf(tab);
   const menus: MenuRecord[] = [];
   const injections: { tabId: number; args: unknown[]; result: unknown }[] = [];
   const menuListeners: ((info: MenuClick, tab?: TabRecord) => void)[] = [];
@@ -399,7 +405,32 @@ export function createFakeChrome(): FakeChrome {
       async query(info: Record<string, unknown> = {}) {
         return tabs
           .filter((tab) => info.groupId === undefined || tab.groupId === info.groupId)
-          .map((tab) => ({ ...tab }));
+          .filter((tab) => info.windowId === undefined || tab.windowId === info.windowId)
+          .filter((tab) => info.active === undefined || Boolean(tab.active) === info.active)
+          .map((tab) => ({ ...tab, index: indexInWindow(tab) }));
+      },
+
+      /**
+       * Moves a tab to a window-relative index.
+       *
+       * Position is modelled as order within `tabs` rather than a stored number, so a move is
+       * a splice and every other tab's index falls out of it. Storing an index field instead
+       * would let the fake hold arrangements Chrome cannot produce, such as two tabs claiming
+       * index 3, which is exactly the kind of thing a fake should not be able to express.
+       */
+      async move(tabId: number, props: { index: number }) {
+        const at = tabs.findIndex((tab) => tab.id === tabId);
+        if (at === -1) throw new Error(`No tab with id ${tabId}`);
+
+        const [moved] = tabs.splice(at, 1);
+        if (!moved) throw new Error(`No tab with id ${tabId}`);
+
+        const siblings = tabs.filter((tab) => tab.windowId === moved.windowId);
+        const wanted = Math.max(0, Math.min(props.index, siblings.length));
+        const anchor = siblings[wanted];
+        tabs.splice(anchor ? tabs.indexOf(anchor) : tabs.length, 0, moved);
+
+        return { ...moved, index: indexInWindow(moved) };
       },
 
       async get(tabId: number) {

@@ -190,21 +190,23 @@ describe('loopbackAliasesFor', () => {
   // Chrome treats these as different origins even though they are the same
   // server, so the editor offers the counterparts rather than leaving you to
   // discover the problem.
-  it('offers the other spellings of the same loopback server', () => {
+  it('offers the other common spelling of the same loopback server', () => {
     const base = tryParseBaseUrl('http://localhost:3000');
     expect(base).not.toBeNull();
-    expect(loopbackAliasesFor(base!)).toEqual([
-      'http://127.0.0.1:3000',
-      'http://[::1]:3000',
-    ]);
+    expect(loopbackAliasesFor(base!)).toEqual(['http://127.0.0.1:3000']);
   });
 
-  it('carries the base path and port into the aliases', () => {
+  it('carries the base path and port into the alias', () => {
     const base = tryParseBaseUrl('http://127.0.0.1:8080/app');
-    expect(loopbackAliasesFor(base!)).toEqual([
-      'http://localhost:8080/app',
-      'http://[::1]:8080/app',
-    ]);
+    expect(loopbackAliasesFor(base!)).toEqual(['http://localhost:8080/app']);
+  });
+
+  // Same server over IPv6, but rare enough that a chip for it is noise.
+  it('never offers or answers for [::1]', () => {
+    expect(loopbackAliasesFor(tryParseBaseUrl('http://localhost:3000')!)).not.toContain(
+      'http://[::1]:3000',
+    );
+    expect(loopbackAliasesFor(tryParseBaseUrl('http://[::1]:3000')!)).toEqual([]);
   });
 
   it('offers nothing for a non-loopback host', () => {

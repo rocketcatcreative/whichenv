@@ -401,19 +401,26 @@ export function matchKeyForUrl(href: string): string | null {
 }
 
 /**
- * The other spellings of the same loopback server.
+ * The other common spelling of the same loopback server.
  *
  * Chrome treats `localhost:3000` and `127.0.0.1:3000` as different origins even
- * though they are the same dev server, so the editor offers the counterparts as
- * aliases rather than making you notice the problem yourself.
+ * though they are the same dev server, so the editor offers the counterpart as an
+ * alias rather than making you notice the problem yourself. Plenty of dev servers
+ * print `127.0.0.1` in their startup output, so people land there without choosing to.
+ *
+ * Only that pair. `[::1]` is the same server again over IPv6, but almost nobody ends
+ * up there, and a chip nobody recognizes is noise. The custom alias covers it.
  */
+const LOOPBACK_COUNTERPART: Readonly<Record<string, string>> = {
+  localhost: '127.0.0.1',
+  '127.0.0.1': 'localhost',
+};
+
 export function loopbackAliasesFor(base: ParsedBase): string[] {
-  if (base.wildcardSuffix || !isLoopbackHost(base.host)) return [];
+  if (base.wildcardSuffix) return [];
 
-  const suffix = `:${base.port}${base.basePath}`;
-  const candidates = ['localhost', '127.0.0.1', '[::1]']
-    .filter((host) => host !== base.host)
-    .map((host) => `${base.scheme}://${host}${suffix}`);
+  const counterpart = LOOPBACK_COUNTERPART[base.host];
+  if (!counterpart) return [];
 
-  return candidates;
+  return [`${base.scheme}://${counterpart}:${base.port}${base.basePath}`];
 }

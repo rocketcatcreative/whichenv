@@ -10,45 +10,41 @@
  * between the popup closing and the options page loading.
  */
 
-import { emptyDraft, newEnvironmentDraft, type EnvironmentDraft, type GroupDraft } from './schema';
-import { byPipelineOrder } from './palette';
-import type { GuessedGroup } from './guess';
+import { emptyDraft, type GroupDraft } from './schema';
+import { titleFromTab } from './naming';
+import { parseBaseUrl } from './url';
 
 const KEY = 'pending:draft';
 
 /**
- * Turns a guess into an editable draft.
+ * Turns the active tab into an editable draft.
  *
- * Builds the environment list from the GUESS, not from the blank draft. It used to map over
- * the blank draft's rows and fill the ones that matched, which worked only while a blank
- * group happened to start with the same four environments the guesser produces. Once a blank
- * group started with production alone, that quietly threw away every guess but prod, gutting
- * the feature. Adding a row per guess is what the function was always meant to do.
+ * One row, holding the URL you are actually looking at, plus a name. Nothing else is
+ * inferred. An earlier version filled in `staging.<apex>`, `dev.<apex>` and a loopback
+ * port as well, on the theory that a guess you can correct beats a blank form. It does
+ * not: environment URLs follow no convention reliable enough to bet on, so those rows
+ * were usually wrong, and wrong-but-plausible is the expensive kind of wrong. You would
+ * accept them without reading and get a switch target pointing at a hostname that does
+ * not resolve, or worse, at someone else's site.
  *
- * Anything the guesser did not produce is kept, so a blank row is never silently dropped, and
- * the result is sorted into pipeline order so the editor reads local to production regardless
- * of which order things arrived in.
+ * The row is production because that is what a blank group starts with, and because an
+ * unverified environment is safest labelled as the one you must be careful on. Changing
+ * it is a dropdown away, and the editor is open in front of you.
+ *
+ * Returns null for anything that is not a usable base URL, which the caller reports.
  */
-export function draftFromGuess(guess: GuessedGroup, id: string): GroupDraft {
-  const base = emptyDraft(id);
-  base.title = guess.title;
+export function draftFromTab(url: string, pageTitle: string | undefined, id: string): GroupDraft | null {
+  const parsed = parseBaseUrl(url);
+  if (!parsed.ok) return null;
 
-  const byKey = new Map<string, EnvironmentDraft>(
-    base.environments.map((env) => [env.key, env]),
-  );
+  const draft = emptyDraft(id);
+  draft.title = titleFromTab(parsed.value.host, pageTitle);
 
-  for (const guessed of guess.environments) {
-    const existing = byKey.get(guessed.key) ?? newEnvironmentDraft(guessed.key);
-    byKey.set(guessed.key, {
-      ...existing,
-      baseUrl: guessed.baseUrl,
-      enabled: guessed.enabled,
-    });
-  }
+  const first = draft.environments[0];
+  if (!first) return null;
+  first.baseUrl = `${parsed.value.scheme}://${parsed.value.authority}`;
 
-  base.environments = [...byKey.values()].sort((a, b) => byPipelineOrder(a.key, b.key));
-
-  return base;
+  return draft;
 }
 
 export async function stashDraft(draft: GroupDraft): Promise<void> {

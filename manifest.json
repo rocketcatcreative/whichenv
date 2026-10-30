@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WhichEnv: Environment Indicator and Switcher",
   "short_name": "WhichEnv",
-  "version": "0.21.1",
+  "version": "0.22.0",
   "description": "See which environment you are on at a glance, and switch between dev, staging, prod and local at the same path.",
   "minimum_chrome_version": "116",
   "icons": {

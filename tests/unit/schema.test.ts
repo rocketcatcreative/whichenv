@@ -592,10 +592,7 @@ describe('helpers', () => {
   });
 
   it('suggests loopback counterparts as aliases', () => {
-    expect(suggestedAliases('http://localhost:3000')).toEqual([
-      'http://127.0.0.1:3000',
-      'http://[::1]:3000',
-    ]);
+    expect(suggestedAliases('http://localhost:3000')).toEqual(['http://127.0.0.1:3000']);
     expect(suggestedAliases('https://acme.com')).toEqual([]);
     expect(suggestedAliases('garbage://x')).toEqual([]);
   });

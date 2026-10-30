@@ -9,9 +9,13 @@
 
 * { box-sizing: border-box; }
 
+html { width: 320px; overflow-x: hidden; }
+
 body {
   margin: 0;
   width: 320px;
+  max-width: 320px;
+  overflow-x: hidden;
   font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--fg);
@@ -31,7 +35,74 @@ h1 {
   color: var(--muted);
 }
 
+/*
+ * The global indicator switch. A native checkbox restyled as a switch, so it keeps
+ * keyboard and screen reader behavior for free.
+ */
+.toggle {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 11px;
+  margin-bottom: 10px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggle-row input {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  /* Darker than --line, which is too faint to read as an off switch in light mode. */
+  background: light-dark(#d6d3d1, #52525b);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.toggle-row input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform 120ms ease;
+}
+
+.toggle-row input:checked { background: light-dark(#1d4ed8, #3b6ef5); }
+
+.toggle-row input:checked::after { transform: translateX(12px); }
+
+.toggle-row input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggle-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.toggle-note[hidden] { display: none; }
+
 .card {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 10px 11px;
@@ -49,13 +120,19 @@ h1 {
 .url {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   line-height: 1.45;
 }
+
+/* The URL going into the draft, between the sentence describing it and the button. */
+.setup-url { margin: 4px 0 10px; }
 
 .pill {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   gap: 6px;
   padding: 4px 10px 4px 8px;
   border-radius: 999px;
@@ -95,17 +172,20 @@ button:hover { border-color: var(--accent); }
 
 .group-name {
   margin: 7px 0 0;
+  overflow-wrap: anywhere;
   font-size: 12px;
   color: var(--muted);
 }
 
-.switch-list { display: grid; gap: 2px; }
+.switch-list { display: grid; gap: 2px; min-width: 0; }
 
 .switch-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 2px 8px;
   width: 100%;
+  min-width: 0;
   padding: 6px 7px;
   border: 0;
   border-radius: 6px;
@@ -123,16 +203,37 @@ button:hover { border-color: var(--accent); }
   outline-offset: -2px;
 }
 
-.switch-label { font-size: 12.5px; font-weight: 600; }
+.switch-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 
+/*
+ * Hosts are long unbroken strings, and a flex item will not shrink below its content
+ * by default, so a long one used to set the row's minimum width and stretch the whole
+ * popup with it. `min-width: 0` plus `overflow-wrap: anywhere` let it break mid-token
+ * instead.
+ */
 .switch-host {
-  margin-left: auto;
+  /* After the flag, so the host sits below both the label and the guard mark. */
+  order: 1;
+  /* A whole line to itself, indented to the label's left edge: dot (9px) + gap (8px).
+     Always, rather than only when it does not fit, because a host that sometimes sits
+     beside the label and sometimes below it reads as two different layouts. */
+  flex: 1 0 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-left: 17px;
+  overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px;
   color: var(--muted);
 }
 
-.switch-flag { font-size: 10px; color: light-dark(#b91c1c, #fca5a5); }
+.switch-flag { flex: none; font-size: 10px; color: light-dark(#b91c1c, #fca5a5); }
 
 .dot {
   display: inline-block;
@@ -143,6 +244,20 @@ button:hover { border-color: var(--accent); }
 }
 
 .hint { margin: 8px 0 0; font-size: 11px; }
+
+/* A full-width action under a list, rather than one of a row of buttons. */
+.wide { width: 100%; }
+
+/*
+ * The armed state of a two-step confirm. Red text on the normal button surface rather than
+ * a red button: this is a warning about what the next click does, not a destructive action
+ * in its own right.
+ */
+button.armed {
+  border-color: light-dark(#b91c1c, #fca5a5);
+  color: light-dark(#b91c1c, #fca5a5);
+  font-weight: 600;
+}
 
 button.primary {
   background: light-dark(#1d4ed8, #3b6ef5);

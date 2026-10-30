@@ -430,6 +430,30 @@
 .row-copy svg,
 .row-new svg { display: block; }
 
+/*
+ * "Open all environments", the last row in the list.
+ *
+ * Separated by a rule rather than sat flush with the environments above it: those rows all
+ * answer "go here", and this one does something categorically different. The separator is
+ * the cheapest way to say so without a second heading.
+ */
+.row-all {
+  margin-top: 3px;
+  border-top: 1px solid light-dark(#00000014, #ffffff1f);
+  border-radius: 0 0 6px 6px;
+}
+
+/* No environment colour, because it is not one environment. */
+.row-dot-all {
+  background: none !important;
+  color: inherit !important;
+  opacity: 0.75;
+  display: grid;
+  place-items: center;
+}
+
+.row-dot-all svg { display: block; }
+
 .note {
   padding: 7px 9px 4px;
   font-size: 10.5px;

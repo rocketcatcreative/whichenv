@@ -8,6 +8,10 @@
  *
  * Sizes come from the store's requirements: 1280x800, at most five.
  *
+ * Two backdrops: `store/demo-storefront.html` for shot 1, `store/demo-page.html` for shots 2
+ * and 3. Both are served from one origin, routed by path, because the extension matches on
+ * origin and the group is configured with the demo server as production.
+ *
  * The two page shots are captured at a 640x400 viewport with deviceScaleFactor 2, which yields
  * 1280x800 with everything at double size. The indicator is a small object by design, and at 1:1
  * in a 1280px-wide image it is a speck once the store scales the thumbnail down. The options page
@@ -37,10 +41,19 @@ mkdirSync(OUT, { recursive: true });
 
 const PORT = Number(process.env.PORT ?? 8600);
 
-const page = await readFile(join(root, 'store', 'demo-page.html'));
-const server = createServer((_req, res) => {
+/*
+ * Two backdrops, one origin.
+ *
+ * The origin has to stay the same across all three page shots, because the group is configured
+ * with `http://localhost:PORT` as production and that is what the extension matches on. So the
+ * two pages are routed by path rather than served from two ports. No screenshot shows the
+ * address bar, so the path itself is invisible in the output.
+ */
+const storefront = await readFile(join(root, 'store', 'demo-storefront.html'));
+const admin = await readFile(join(root, 'store', 'demo-page.html'));
+const server = createServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-  res.end(page);
+  res.end(req.url?.startsWith('/orders') ? admin : storefront);
 });
 await new Promise((r) => server.listen(PORT, r));
 
@@ -95,8 +108,8 @@ async function setUp(options, optionsUrl, prodUrl) {
   await options.fill('#group-description', 'The main public storefront.');
 
   // The demo server is mapped to PRODUCTION, not local, and that is the point. Red on a page
-  // that looks like a real admin is the screenshot that says what this extension is for. The
-  // other three are ordinary remote hosts, so the switcher list reads naturally.
+  // that looks like a real live site is the screenshot that says what this extension is for.
+  // The other three are ordinary remote hosts, so the switcher list reads naturally.
   for (const [envKey, url] of [
     ['local', 'http://localhost:3000'],
     ['dev', 'https://dev.acme.example'],
@@ -122,7 +135,11 @@ const shoot = async (target, name, opts = {}) => {
   console.log(`  ${name}.png`);
 };
 
-// ------------------------------------------------------- 1 and 2: the page, at 2x
+// ------------------------------------------------- 1, 2 and 3: the page, at 2x
+//
+// Captured OUT OF ORDER, on purpose. Turning the frame on is a round trip through the options
+// page, and shot 1 and shot 3 both want it on while shot 2 wants it off. So the two unframed
+// shots are taken first, the frame goes on once, and the two framed shots follow.
 {
   const ctx = await context(640, 400, 2);
   try {
@@ -133,22 +150,22 @@ const shoot = async (target, name, opts = {}) => {
     await setUp(options, OPTIONS, `http://localhost:${PORT}`);
 
     const tab = await ctx.newPage();
-    await tab.goto(`http://localhost:${PORT}/`, { waitUntil: 'load' });
+    await tab.goto(`http://localhost:${PORT}/orders`, { waitUntil: 'load' });
     await tab.waitForSelector('whichenv-indicator', { timeout: 8000 });
     await tab.bringToFront();
 
-    // 1. Expanded. The hook: you can see at a glance what this tab is.
-    await tab.hover('whichenv-indicator');
-    await tab.waitForTimeout(500);
-    await shoot(tab, '01-indicator');
-
     // 2. The switcher open, which is the whole switching story in one image.
+    await tab.hover('whichenv-indicator');
+    await tab.waitForTimeout(400);
     await tab.click('whichenv-indicator');
     await tab.waitForTimeout(600);
     await shoot(tab, '02-switcher');
 
-    // 3. Production, framed, and collapsed to the resting chip. Two claims at once: the marker
-    //    for the environment you must not mistake, and how little room it takes when idle.
+    // Frame on, at its widest, for the two shots below.
+    //
+    // Saving the group also pushes a refresh, which remounts the indicator and so closes the
+    // list opened above. Shot 3 depends on that: nothing else here closes it, and the pill
+    // deliberately will not auto-collapse while its list is open.
     await options.bringToFront();
     await options.click('.group-card .btn-edit');
     await options.waitForSelector('#group-title');
@@ -157,11 +174,29 @@ const shoot = async (target, name, opts = {}) => {
     await options.waitForSelector('.group-card');
     await options.selectOption('#markers select', '8');
 
+    // 3. Production, framed, and collapsed to the resting chip. Two claims at once: the marker
+    //    for the environment you must not mistake, and how little room it takes when idle.
     await tab.bringToFront();
     await tab.waitForTimeout(1000);
     await tab.mouse.move(320, 300);
     await tab.waitForTimeout(4800); // let it collapse
     await shoot(tab, '03-frame-collapsed');
+
+    // 1. The lead image, and the only one a stranger is guaranteed to see. A storefront rather
+    //    than an admin table, because "this is the live site your customers are on" is a claim
+    //    anyone understands, and "internal orders screen" is not.
+    //
+    //    Frame on, pill expanded, list CLOSED. Shot 2 is the switcher, so opening it here would
+    //    spend the lead image on the second image's job and bury the one thing this frame has to
+    //    land: you are on production, and you can see it without looking for it.
+    //
+    //    Held expanded by the hover alone. The pill collapses on a timer once the pointer leaves,
+    //    so the mouse has to stay on it through the capture.
+    await tab.goto(`http://localhost:${PORT}/`, { waitUntil: 'load' });
+    await tab.waitForSelector('whichenv-indicator', { timeout: 8000 });
+    await tab.hover('whichenv-indicator');
+    await tab.waitForTimeout(600);
+    await shoot(tab, '01-indicator');
   } finally {
     await ctx.close();
   }

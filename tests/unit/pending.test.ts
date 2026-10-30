@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeChrome, type FakeChrome } from '../helpers/fake-chrome';
-import { draftFromGuess, stashDraft, takeDraft } from '../../src/core/pending';
-import { guessGroupFromUrl } from '../../src/core/guess';
+import { draftFromTab, stashDraft, takeDraft } from '../../src/core/pending';
 import { emptyDraft } from '../../src/core/schema';
 
 let fake: FakeChrome;
@@ -10,34 +9,42 @@ beforeEach(() => {
   fake = installFakeChrome();
 });
 
-describe('draftFromGuess', () => {
-  it('carries the guessed title and URLs into an editable draft', () => {
-    const guess = guessGroupFromUrl('https://staging.acme.example/x', 'Acme Store', {
-      localPort: 3300,
-    })!;
-    const draft = draftFromGuess(guess, 'draft-id');
+describe('draftFromTab', () => {
+  it('carries the title and the tab’s own URL into an editable draft', () => {
+    const draft = draftFromTab('https://staging.acme.example/x?y=1', 'Acme Store', 'draft-id')!;
 
     expect(draft.id).toBe('draft-id');
     expect(draft.title).toBe('Acme Store');
-
-    const byKey = Object.fromEntries(draft.environments.map((env) => [env.key, env]));
-    expect(byKey.staging?.baseUrl).toBe('https://staging.acme.example');
-    expect(byKey.staging?.enabled).toBe(true);
-    expect(byKey.prod?.baseUrl).toBe('https://acme.example');
-    expect(byKey.prod?.enabled).toBe(false);
-    expect(byKey.local?.baseUrl).toBe('http://localhost:3300');
+    expect(draft.environments).toHaveLength(1);
+    expect(draft.environments[0]?.key).toBe('prod');
+    expect(draft.environments[0]?.baseUrl).toBe('https://staging.acme.example');
   });
 
-  it('keeps the four default rows in pipeline order', () => {
-    const guess = guessGroupFromUrl('https://acme.example/', undefined, { localPort: 3000 })!;
-    expect(draftFromGuess(guess, 'x').environments.map((env) => env.key)).toEqual([
-      'local', 'dev', 'staging', 'prod',
-    ]);
+  it('names the group from the domain when the tab has no title', () => {
+    expect(draftFromTab('https://acme.example/', undefined, 'x')?.title).toBe('Acme');
+  });
+
+  // The whole point of the change. Anything that fabricates a hostname from the apex is a
+  // switch target pointing somewhere nobody confirmed, and it gets accepted unread.
+  it('invents no URL other than the one the tab is on', () => {
+    const draft = draftFromTab('https://acme.example/', undefined, 'x')!;
+    const urls = draft.environments.map((env) => env.baseUrl);
+    expect(urls).toEqual(['https://acme.example']);
+    expect(urls.some((url) => /staging|dev|localhost/.test(url))).toBe(false);
+  });
+
+  it('returns null for a URL that cannot be a base URL', () => {
+    expect(draftFromTab('chrome://extensions', undefined, 'x')).toBeNull();
+    expect(draftFromTab('not a url at all !!', undefined, 'x')).toBeNull();
+  });
+
+  it('keeps the port when it is not the scheme default', () => {
+    expect(draftFromTab('https://acme.example:8443/', undefined, 'x')?.environments[0]?.baseUrl)
+      .toBe('https://acme.example:8443');
   });
 
   it('produces a draft the editor can consume unchanged', () => {
-    const guess = guessGroupFromUrl('https://acme.example/', undefined, { localPort: 3000 })!;
-    const draft = draftFromGuess(guess, 'x');
+    const draft = draftFromTab('https://acme.example/', undefined, 'x')!;
     const shape = emptyDraft('x');
     expect(Object.keys(draft).sort()).toEqual(Object.keys(shape).sort());
     for (const env of draft.environments) {

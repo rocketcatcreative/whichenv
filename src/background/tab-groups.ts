@@ -16,11 +16,14 @@
  * anywhere in there and the whole group reads red. ENV_KEYS is ordered
  * lowest-to-highest risk, so this is just a max.
  *
- * The tab a switch came FROM is pulled in too, but only when it is currently
- * ungrouped. Grouping only the new tab would leave the pair split, which defeats the
- * point: the two tabs you are comparing end up in different places. A tab that is
- * already in some group is left exactly where it is, because that arrangement is the
- * user's and not ours to rearrange.
+ * The tab a SWITCH came from is pulled in too, but only when it is currently ungrouped.
+ * Grouping only the new tab would leave the pair split, which defeats the point: the two
+ * tabs you are comparing end up in different places. A tab that is already in some group
+ * is left exactly where it is, because that arrangement is the user's and not ours to
+ * rearrange.
+ *
+ * Open-all is the deliberate exception. It takes the originating tab whatever state it is
+ * in, and it orders the whole set; see `groupTabsInOrder`.
  */
 
 import { lookup, resolveMatch } from '@core/match';
@@ -149,28 +152,48 @@ async function riskiestEnvIn(tabGroupId: number, fallback: EnvKey): Promise<EnvK
 }
 
 /**
- * Puts a tab into the Chrome tab group for its environment group.
+ * Reorders tabs already inside a group, without letting any of them out of it.
+ *
+ * Moved one at a time and left to right, starting at the group's own first index.
+ * `chrome.tabs.move` takes an array, but it reindexes as it goes and the array form is
+ * only correct when every tab in the group is one being ordered, which is not true here:
+ * a group can already hold tabs from earlier switches. Anchoring to the group's first
+ * index is what keeps the moves inside the group, since a tab moved past a group's
+ * boundary is silently dropped out of it.
+ */
+async function arrange(tabGroupId: number, tabIds: readonly number[]): Promise<void> {
+  try {
+    const inGroup = await chrome.tabs.query({ groupId: tabGroupId });
+    const indexes = inGroup.map((tab) => tab.index);
+    if (indexes.length === 0) return;
+
+    let index = Math.min(...indexes);
+    for (const tabId of tabIds) {
+      await chrome.tabs.move(tabId, { index });
+      index += 1;
+    }
+  } catch {
+    // Ordering is cosmetic. Failing it must not undo the grouping that just worked.
+  }
+}
+
+/**
+ * Find-or-create the group, put these tabs in it, and paint it.
  *
  * Best effort throughout: tab grouping is a convenience, and a failure here must
- * never break the switch that triggered it. Every step is wrapped rather than
- * allowed to reject into the caller.
+ * never break the switch or the open-all that triggered it. Every step is wrapped
+ * rather than allowed to reject into the caller.
  */
-export async function groupTab(
-  tabId: number,
+async function attach(
+  tabIds: [number, ...number[]],
   windowId: number,
   envGroup: EnvGroup,
-  envKey: EnvKey,
+  fallbackEnv: EnvKey,
   paletteId: PaletteId,
-  originTabId?: number,
+  ordered: boolean,
 ): Promise<void> {
   try {
     const existing = await findExistingGroup(windowId, envGroup);
-
-    // Origin first, so the tab strip keeps the order they were already in.
-    // Typed as a non-empty tuple because that is what chrome.tabs.group requires.
-    const adoptOrigin = await shouldAdoptOrigin(originTabId, tabId, windowId);
-    const tabIds: [number, ...number[]] =
-      adoptOrigin && originTabId !== undefined ? [originTabId, tabId] : [tabId];
 
     // Explicitly against null rather than truthiness: a tab group id of 0 would be
     // falsy, and relying on Chrome never issuing one is not a guarantee worth taking.
@@ -181,18 +204,60 @@ export async function groupTab(
 
     await writeAssignment(windowId, envGroup.id, tabGroupId);
 
+    if (ordered) await arrange(tabGroupId, tabIds);
+
     // Recomputed on every add, so opening a prod tab turns the group red. It is
     // deliberately NOT recomputed on close: leaving it at the high-water mark errs
     // toward caution rather than quietly downgrading a group that had prod in it.
-    const riskiest = await riskiestEnvIn(tabGroupId, envKey);
+    const riskiest = await riskiestEnvIn(tabGroupId, fallbackEnv);
 
     await chrome.tabGroups.update(tabGroupId, {
       title: envGroup.title,
       color: styleFor(riskiest, paletteId).tabGroupColor,
     });
   } catch (error) {
-    console.warn('[WhichEnv] could not group the new tab', error);
+    console.warn('[WhichEnv] could not group those tabs', error);
   }
+}
+
+/**
+ * Puts a tab into the Chrome tab group for its environment group.
+ *
+ * Position is left alone: a switch adds one tab next to the tab it came from, and
+ * Chrome has already put it in the right place.
+ */
+export async function groupTab(
+  tabId: number,
+  windowId: number,
+  envGroup: EnvGroup,
+  envKey: EnvKey,
+  paletteId: PaletteId,
+  originTabId?: number,
+): Promise<void> {
+  // Origin first, so the tab strip keeps the order they were already in.
+  // Typed as a non-empty tuple because that is what chrome.tabs.group requires.
+  const adoptOrigin = await shouldAdoptOrigin(originTabId, tabId, windowId);
+  const tabIds: [number, ...number[]] =
+    adoptOrigin && originTabId !== undefined ? [originTabId, tabId] : [tabId];
+
+  await attach(tabIds, windowId, envGroup, envKey, paletteId, false);
+}
+
+/**
+ * Puts a whole set of tabs into the group, in the order given.
+ *
+ * Unlike `groupTab`, the originating tab is pulled in unconditionally. Open-all is an
+ * explicit request to gather this site's environments together, and leaving the tab you
+ * pressed it from outside the group would be the one arrangement nobody wants.
+ */
+export async function groupTabsInOrder(
+  tabIds: [number, ...number[]],
+  windowId: number,
+  envGroup: EnvGroup,
+  fallbackEnv: EnvKey,
+  paletteId: PaletteId,
+): Promise<void> {
+  await attach(tabIds, windowId, envGroup, fallbackEnv, paletteId, true);
 }
 
 /** Drops remembered assignments for a window that has closed. */

@@ -285,7 +285,8 @@ group's local environment from another's**.
   options page nudges you toward `http://localhost:3000`.
 - Saving `http://localhost:3000` automatically offers `http://127.0.0.1:3000` as
   an alias, since the browser treats those as different origins while they are
-  the same server. Same for `[::1]`.
+  the same server, and the reverse for `127.0.0.1`. `[::1]` is not offered: it is
+  rare enough that the chip read as noise, and a custom alias covers it.
 
 **The one case origin matching genuinely cannot solve:** if you run project A and
 project B both on `:3000` at different times, no amount of URL inspection can
@@ -445,12 +446,13 @@ Ordered by value per unit of effort.
 
 ### 8.1 Create group from the current tab  ★ highest value (done, Phase 6)
 Clicking the toolbar icon on an unrecognized site offers "Create a group from
-this tab." It prefills the title from the page title, drops the current origin
-into a slot you pick, then **guesses the siblings**: `staging.<domain>`,
-`dev.<domain>`, `<domain>.test`, and a `localhost` entry pre-filled with the
-lowest port not already claimed by another group. Without this, every group is a
-tedious manual form and the extension dies of onboarding friction. With it,
-adding a site takes about ten seconds.
+this tab." It prefills the title from the page title and drops the current origin
+into a production row. Without this, every group is a tedious manual form and the
+extension dies of onboarding friction.
+
+It used to also **guess the siblings**: `staging.<domain>`, `dev.<domain>`, and a
+`localhost` entry on the lowest unclaimed port. That came out in G below. The rest of
+this section describes what it does now.
 
 ### 8.2 Keyboard shortcuts
 `Alt+Shift+1` through `4` jump straight to the nth environment in the current
@@ -599,7 +601,8 @@ whichenv/
 │   │   ├── settings.ts            global settings: corner, size, color set, markers, collapse
 │   │   ├── messages.ts            typed protocol between worker and UI
 │   │   ├── permissions.ts         per-origin host access: patterns, request, prune
-│   │   ├── guess.ts               infer a group from one URL
+│   │   ├── naming.ts              name a group from one URL
+│   │   ├── open-all.ts            which environments to open at once, in what order
 │   │   ├── config.ts              export, import, and import planning
 │   │   ├── pending.ts             popup to options draft handoff
 │   │   ├── ports.ts               local port registry and collision checks
@@ -753,12 +756,8 @@ snippet share (8.5), the omnibox keyword (8.3), and reordering (8.7).
 
 **Create from tab** is the onboarding fix. Filling in four URLs and a title by hand
 is enough friction to stop people bothering, and an extension nobody sets up does
-nothing. `core/guess.ts` infers which environment a URL looks like, strips the
-environment label to get the apex, and generates siblings from it. Guessed siblings
-are filled in but left DISABLED: a hostname that does not exist would otherwise be a
-switch target that goes nowhere, so ticking one is a deliberate "yes, that is right".
-Unknown hostnames guess prod, which puts the red pill on them, the safe direction to
-be wrong in.
+nothing. It shipped in this phase generating sibling hostnames from the apex; see G for
+why that was removed and what it does instead.
 
 **Import is generous in, strict out.** It accepts a full exported config, a bare
 array of groups, or a single shared group, because all three are things a person will
@@ -1157,6 +1156,9 @@ create-from-tab silently stops guessing anything but prod, which would gut the o
 feature. And `draftFromGuess` FILLS existing rows rather than adding them, so it must learn to
 append a row for a guess whose environment is not present.
 
+(G removed the third list. Create-from-tab and a blank group now start the same way, so
+`NEW_GROUP_ENV_KEYS` is the only one of the two that survived.)
+
 This pass also extracted a shared `createGroup` helper for the e2e suites, and a
 `tests/helpers/groups.ts` builder for the unit ones. Ten unit files had grown their own copy of
 "make a draft, then fill the rows I care about", which worked only while a blank draft contained
@@ -1347,6 +1349,76 @@ Worth noting what this was NOT: there is no write amplification. `listGroups` re
 index as a side effect of reading, and reads are triggered from change listeners, which looked
 like a plausible feedback loop. Measured: zero index-only rewrites during an import. The
 per-group loop was the whole story.
+
+**G. Create-from-tab stops inventing URLs.**  ✅ done (2026-08-19)
+
+`guess.ts` generated the other environments' base URLs from the apex: `staging.acme.com`,
+`dev.acme.com`, prod by stripping the label, plus `localhost` on the lowest free port. The
+premise was that a guess you can correct beats a blank form. It does not, and the reason is
+not that the guesses were merely often wrong. It is that they were wrong in the shape of an
+answer.
+
+Environment URLs follow no convention worth betting on. Real ones look like
+`va-ptsd-decisionaid.staging.urbanemu.com`, `acme.pantheonsite.io`, `pr-4821.preview.acme.dev`.
+A prefilled `staging.acme.com` is confident, plausible, and almost never that. A blank field
+asks a question; a wrong field answers one. The wrong field wins, because a row that already
+looks filled in gets saved unread, and the result is a switch target that either goes nowhere
+or, worse, goes to a real site that is not yours.
+
+The disabled-by-default guard was the tell. It existed precisely because the guesses could not
+be trusted, which is an argument against generating them rather than an argument for shipping
+them switched off.
+
+What is left: the URL of the tab you are actually on, in a production row, and a title from the
+page. `guess.ts` became `naming.ts` and exports `apexOf`, `siteWordOf` and `titleFromTab` only.
+A title is a different bet: it is visible in the editor before anything is saved and being wrong
+costs one keystroke, not a wrong navigation. `GUESSABLE_ENV_KEYS` is gone, `draftFromGuess`
+became `draftFromTab`, and the add-environment buttons show a remembered URL only when you
+removed that row yourself, which was always the honest half of that feature.
+
+Kept deliberately: `suggestLoopbackPort` still prefills `http://localhost:<free port>` when you
+click "Add local" in the editor. That is a convention rather than a guess about your
+infrastructure, you asked for the row, and being wrong costs nothing that leaves your machine.
+
+**H. Open all environments.**  ✅ done (2026-08-19)
+
+The switcher answers "take me to staging". This answers "show me all of them at once", which
+is the question before a release and the question when a bug reproduces on one environment and
+you need to know which others have it. One button in the popup and one row in the on-page
+switcher; the whole group lands in a single Chrome tab group.
+
+**Pipeline order, not the group's configured order.** Configured order is a per-group
+preference and it already drives the switcher list and the numeric shortcuts. A wall of tabs is
+a different object, and its useful property is that the leftmost tab is always the safest
+environment and the rightmost is always production, in every group. That is worth more than
+honouring a per-group arrangement, because the strip then reads the same way every time.
+
+**One confirm for the whole action, not one per environment.** The enter guard exists to stop
+you landing on production by accident, and a button whose entire purpose is opening several
+environments at once cannot sensibly interrogate each of them. So it arms once, names the
+guarded environments in the label, and takes a second click. Skipping guarded environments was
+the alternative and it is worse: "open all" quietly not opening all is its own surprise.
+
+**Already-open tabs are adopted, not duplicated.** This is a button people press twice, so the
+second press has to be a no-op rather than a second set of tabs. Matching is on the normalised
+URL, forgiving only a trailing slash. The limit is that reading a tab's URL needs host
+permission for its origin, so adoption covers exactly the origins someone has granted, and
+degrades to opening a fresh tab anywhere else. That is the old behaviour rather than a failure,
+and the e2e suite asserts the granted case and documents the other.
+
+**New tabs open in the background.** Opening five environments should not drag focus through
+five page loads and abandon you wherever the last one landed.
+
+`groupTab` and the new `groupTabsInOrder` share one `attach` helper, so find-or-create,
+the remembered window assignment and the highest-risk colouring are defined once. Ordering is
+done one `chrome.tabs.move` at a time, anchored to the group's own first index: the array form
+of `move` reindexes as it goes and is only correct when every tab in the group is one being
+ordered, which is not true once a group has picked up tabs from earlier switches.
+
+Unlike a switch, this takes the originating tab into the group whatever state it is in. A
+switch leaves an already-grouped tab alone because that arrangement is the user's; open-all is
+an explicit request to gather this site together, and leaving out the tab you pressed it from
+is the one arrangement nobody wants.
 
 **Phase 8 — Store submission**
 Privacy policy page, screenshots and promo tiles, listing copy, per permission

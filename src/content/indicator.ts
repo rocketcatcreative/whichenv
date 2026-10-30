@@ -18,6 +18,7 @@
 
 import indicatorCss from './indicator.css?inline';
 import { applyMark, type FaviconHandle } from './favicon';
+import { guardsInPlay } from '@core/open-all';
 import { ENV_META, styleFor, type EnvKey } from '@core/palette';
 import { send, type OpenMode, type Push, type ResolvedTab } from '@core/messages';
 import { onSettingsChanged } from '@core/settings';
@@ -293,6 +294,73 @@ function mount(tab: ResolvedTab): void {
     empty.className = 'note';
     empty.textContent = 'This group has no other environments set up yet.';
     list.append(empty);
+  } else {
+    // Pushed onto `rows` like any other, which is what gives it arrow-key focus and the
+    // disarm-on-close every guarded row already gets. It is an option that acts rather than
+    // an option that navigates, which is a distinction the listbox does not need to make.
+    const guarded = tab.siblings.filter((sibling) => sibling.confirmOnEnter);
+    const all = document.createElement('button');
+    all.className = 'row row-all';
+    all.type = 'button';
+    all.setAttribute('role', 'option');
+    all.setAttribute('aria-selected', 'false');
+
+    const allDot = document.createElement('span');
+    allDot.className = 'row-dot row-dot-all';
+    allDot.setAttribute('aria-hidden', 'true');
+    allDot.innerHTML =
+      '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="1.9" y="3.4" width="4.2" height="9.2" rx="1.2"/>' +
+      '<rect x="7.5" y="3.4" width="4.2" height="9.2" rx="1.2"/>' +
+      '<path d="M13.7 4.8v6.4"/></svg>';
+
+    const allText = document.createElement('span');
+    allText.className = 'row-text';
+    const allLabel = Object.assign(document.createElement('span'), {
+      className: 'row-env',
+      textContent: 'Open all environments',
+    });
+    allText.append(
+      allLabel,
+      Object.assign(document.createElement('span'), {
+        className: 'row-host',
+        textContent: 'one tab group, local to prod',
+      }),
+    );
+
+    all.append(allDot, allText);
+    all.title = 'Open every environment in this group in one tab group, local to production';
+
+    let allArmed = false;
+    const disarmAll = (): void => {
+      if (!allArmed) return;
+      allArmed = false;
+      all.classList.remove('row-armed');
+      allLabel.textContent = 'Open all environments';
+    };
+
+    all.addEventListener('click', () => {
+      // One confirm for the whole action. A button whose purpose is opening several
+      // environments at once cannot sensibly ask about each of them in turn, and the label
+      // names the guarded ones so the second click is informed rather than reflexive.
+      if (guardsInPlay(tab.siblings) && !allArmed) {
+        for (const other of rows) other.dispatchEvent(new CustomEvent('es-disarm'));
+        allArmed = true;
+        all.classList.add('row-armed');
+        allLabel.textContent = `Confirm: opens ${guarded.map((env) => env.label).join(' and ')}`;
+        return;
+      }
+
+      closeList(false);
+      void send({ type: 'openAll', groupId: tab.groupId, url: window.location.href });
+    });
+
+    all.addEventListener('es-disarm', disarmAll);
+    all.addEventListener('blur', disarmAll);
+
+    rows.push(all);
+    list.append(all);
   }
 
   /**
@@ -508,13 +576,27 @@ function mount(tab: ResolvedTab): void {
   };
 }
 
+/**
+ * Bumped by every refresh, so only the latest one in flight gets to mount.
+ *
+ * Two refreshes can overlap: a group change pushes one to every tab, so hiding and showing
+ * a group from the popup in quick succession sends two, and a history navigation can land
+ * alongside either. Without this, both would
+ * resolve and both would mount, leaving two pills on the page and only one of them
+ * reachable by `unmount`.
+ */
+let refreshSeq = 0;
+
 async function refresh(): Promise<void> {
+  const seq = ++refreshSeq;
   unmount?.();
 
   const response = await send({ type: 'resolve', url: window.location.href });
+  if (seq !== refreshSeq) return;
   if (!response || response.type !== 'resolved' || !response.tab) return;
   if (response.tab.hidden) return;
 
+  unmount?.();
   mount(response.tab);
 }
 

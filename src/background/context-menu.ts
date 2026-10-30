@@ -19,8 +19,27 @@ import { getIndex } from './index-cache';
 import { navigate } from './navigate';
 import { groupTab } from './tab-groups';
 
-/** Rebuilds the whole menu from the current groups. */
-export async function syncContextMenus(groups?: readonly EnvGroup[]): Promise<void> {
+/**
+ * The sync in flight, if any. Each new sync waits for it before touching the menu.
+ *
+ * Without this, two syncs fired close together interleave: both await `removeAll`, then both
+ * create the same ids, and the second create fails with "Cannot create item with duplicate
+ * id". That happens on every extension reload, where `onInstalled` and a group change land
+ * within a few milliseconds of each other.
+ */
+let pending: Promise<void> = Promise.resolve();
+
+/** Rebuilds the whole menu from the current groups, one rebuild at a time. */
+export function syncContextMenus(groups?: readonly EnvGroup[]): Promise<void> {
+  // A failed rebuild must not wedge every later one behind a rejected promise.
+  const run = pending.then(() => rebuildContextMenus(groups));
+  pending = run.catch((error: unknown) => {
+    console.warn('[WhichEnv] Context menu rebuild failed', error);
+  });
+  return run;
+}
+
+async function rebuildContextMenus(groups?: readonly EnvGroup[]): Promise<void> {
   // contextMenus is a permission; if it is somehow absent, everything else still works.
   if (!chrome.contextMenus) return;
 

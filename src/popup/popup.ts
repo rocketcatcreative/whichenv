@@ -11,17 +11,20 @@
  * is precisely a site no host permission covers.
  *
  * Phase 6 adds the "create a group from this tab" entry point here, for when the
- * active tab matches nothing.
+ * active tab matches nothing. It fills in the URL of the tab itself and a name, and
+ * stops there. It used to guess the other environments' URLs too; see `pending.ts` for
+ * why that came out.
  */
 
 import './popup.css';
 import { ENV_META } from '@core/palette';
-import { guessGroupFromUrl } from '@core/guess';
 import { getSettings } from '@core/settings';
+import { getGroup, saveGroup } from '@core/storage';
+import { withHidden } from '@core/indicator';
+import type { EnvGroup } from '@core/schema';
 import { send, type OpenMode, type ResolvedTab } from '@core/messages';
-import { draftFromGuess, stashDraft } from '@core/pending';
-import { suggestLoopbackPort } from '@core/ports';
-import { listGroups } from '@core/storage';
+import { draftFromTab, stashDraft } from '@core/pending';
+import { guardsInPlay } from '@core/open-all';
 import { el } from '@ui/dom';
 import { applyPaletteVars, envBg, envFg } from '@ui/palette-vars';
 
@@ -59,19 +62,53 @@ function settingsButton(): HTMLElement {
 }
 
 /**
- * The "create a group from this tab" entry point.
+ * Shows or hides the indicator for the group the active tab is in.
  *
- * Filling in four URLs and a title by hand is enough friction to stop people
- * bothering, and an extension nobody sets up does nothing. This prefills all of it
- * from the current tab and opens the editor to confirm.
+ * The same stored flag as "Hide the indicator on this site" in the group editor, so the two
+ * always agree. It covers every environment in the group, and it persists until toggled
+ * back. Here as well as in the editor because the moment you want the pill gone is the
+ * moment you are looking at the page. Not a `.card`, so the cards below keep their positions.
+ *
+ * The group is re-read at click time rather than reusing the copy the popup opened with,
+ * so an edit saved elsewhere in the meantime is not overwritten.
  */
-async function createFromTabCard(url: string, pageTitle: string | undefined): Promise<HTMLElement> {
-  const groups = await listGroups();
-  const guess = guessGroupFromUrl(url, pageTitle, {
-    localPort: suggestLoopbackPort(groups),
+function indicatorToggle(group: EnvGroup): HTMLElement {
+  const shown = group.indicator?.hidden !== true;
+  const input = el('input', { type: 'checkbox', checked: shown });
+  const note = el('p', {
+    class: 'toggle-note',
+    textContent: `Hidden on every ${group.title} environment until you turn this back on. The toolbar badge still shows where you are.`,
+  });
+  note.hidden = shown;
+
+  input.addEventListener('change', () => {
+    const show = input.checked;
+    note.hidden = show;
+    void (async () => {
+      const current = await getGroup(group.id);
+      if (current) await saveGroup(withHidden(current, !show));
+    })();
   });
 
-  if (!guess) {
+  return el('div', { class: 'toggle', dataset: { setting: 'groupHidden' } }, [
+    el('label', { class: 'toggle-row' }, [
+      el('span', { textContent: 'Show indicator on this site' }),
+      input,
+    ]),
+    note,
+  ]);
+}
+
+/**
+ * The "create a group from this tab" entry point.
+ *
+ * Deliberately modest about what it claims. The card says which URL is going in and
+ * which slot it lands in, so nothing arrives in the editor that was not announced here.
+ */
+function createFromTabCard(url: string, pageTitle: string | undefined): HTMLElement {
+  const draft = draftFromTab(url, pageTitle, crypto.randomUUID());
+
+  if (!draft) {
     return card('Set up', [
       el('p', { class: 'empty', textContent: 'This URL cannot be used as a base URL.' }),
     ]);
@@ -85,22 +122,59 @@ async function createFromTabCard(url: string, pageTitle: string | undefined): Pr
 
   button.addEventListener('click', () => {
     void (async () => {
-      await stashDraft(draftFromGuess(guess, crypto.randomUUID()));
+      await stashDraft(draft);
       await send({ type: 'openOptions' });
       window.close();
     })();
   });
 
-  const guessedFor = guess.environments.find((env) => env.fromTab);
+  const baseUrl = draft.environments[0]?.baseUrl ?? '';
 
   return card('Set up', [
     el('p', { class: 'empty' }, [
-      'It looks like ',
-      el('strong', { textContent: guessedFor ? ENV_META[guessedFor.key].label : 'production' }),
-      ` for "${guess.title}". The other environments will be guessed for you to check.`,
+      'Starts a group called ',
+      el('strong', { textContent: draft.title }),
+      ' with this tab as ',
+      el('strong', { textContent: ENV_META.prod.label }),
+      '. Add the other environments and their URLs in settings.',
     ]),
+    el('div', { class: 'url setup-url', textContent: baseUrl }),
     el('div', { class: 'actions' }, [button]),
   ]);
+}
+
+/**
+ * "Open all environments": one Chrome tab group holding every environment, local to prod.
+ *
+ * Armed first when any environment in the set carries the enter guard. One confirm for the
+ * whole action rather than one per environment, because a button whose purpose is opening
+ * several at once cannot sensibly ask about each of them. The label says which environments
+ * caused it, so the second click is informed rather than reflexive.
+ */
+function openAllButton(resolved: ResolvedTab, url: string): HTMLElement {
+  const guarded = resolved.siblings.filter((sibling) => sibling.confirmOnEnter);
+  const button = el('button', {
+    class: 'wide',
+    type: 'button',
+    textContent: 'Open all environments',
+    title: 'Open every environment in this group in one tab group, local to production',
+  });
+
+  let armed = false;
+
+  button.addEventListener('click', () => {
+    if (guardsInPlay(resolved.siblings) && !armed) {
+      armed = true;
+      button.classList.add('armed');
+      button.textContent = `Confirm: this opens ${guarded.map((env) => env.label).join(' and ')}`;
+      return;
+    }
+
+    void send({ type: 'openAll', groupId: resolved.groupId, url });
+    window.close();
+  });
+
+  return el('div', { class: 'actions' }, [button]);
 }
 
 async function main(): Promise<void> {
@@ -170,11 +244,13 @@ async function main(): Promise<void> {
         }),
         el('div', { class: 'url', textContent: new URL(url).host }),
       ]),
-      await createFromTabCard(url, tab?.title),
+      createFromTabCard(url, tab?.title),
       settingsButton(),
     );
     return;
   }
+
+  const group = await getGroup(resolved.groupId);
 
   const rows = resolved.siblings.map((sibling) => {
     const row = el('button', { class: 'switch-row', type: 'button' }, [
@@ -185,7 +261,16 @@ async function main(): Promise<void> {
       }),
       el('span', { class: 'switch-label', textContent: sibling.label }),
       el('span', { class: 'switch-host', textContent: sibling.display }),
-      sibling.confirmOnEnter ? el('span', { class: 'switch-flag', textContent: '⚑' }) : null,
+      sibling.confirmOnEnter
+        ? el('span', {
+            class: 'switch-flag',
+            textContent: '⚑',
+            title: 'Confirms before entering',
+            // `role` and `aria-label` together, because a bare glyph in a span is read out
+            // as its Unicode name otherwise.
+            attrs: { role: 'img', 'aria-label': 'Confirms before entering' },
+          })
+        : null,
     ]);
 
     row.addEventListener('click', (event) => {
@@ -212,6 +297,7 @@ async function main(): Promise<void> {
 
   app.replaceChildren(
     ...header,
+    ...(group ? [indicatorToggle(group)] : []),
     card('You are on', [
       pillFor(resolved.envKey, resolved.label),
       el('p', { class: 'group-name', textContent: resolved.groupTitle }),
@@ -223,6 +309,7 @@ async function main(): Promise<void> {
             class: 'empty hint',
             textContent: 'Hold Cmd or Ctrl for a new tab, Shift for a new window.',
           }),
+          openAllButton(resolved, url),
         ])
       : card('Switch to', [
           el('p', {

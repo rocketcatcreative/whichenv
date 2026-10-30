@@ -17,7 +17,10 @@ import type { EnvGroup, Tristate } from './schema';
 import type { Settings } from './settings';
 
 export interface ResolvedIndicator {
-  /** Whether the pill is suppressed for this group's sites. */
+  /**
+   * Whether the pill is suppressed for this group's sites. Suppressing the pill
+   * suppresses the frame and the tab icon too, since both are mounted with it.
+   */
   hidden: boolean;
   /** Whether to frame the viewport in the current environment's colour. */
   frame: boolean;
@@ -47,4 +50,19 @@ export function resolveIndicator(group: EnvGroup, settings: Settings): ResolvedI
     frame: applyTristate(group.indicator?.frame, settings.frameByDefault),
     tabIcon: applyTristate(group.indicator?.tabIcon, settings.tabIconByDefault),
   };
+}
+
+/**
+ * The group with its indicator shown or hidden, for the popup's switch.
+ *
+ * Writes only what differs from the default, the same rule `draftToGroup` follows: showing
+ * deletes the `hidden` key rather than storing `false`, and an `indicator` object left
+ * empty is dropped. So hiding and then showing again returns the group byte for byte to
+ * what it was, which keeps it identical to one the editor saved.
+ */
+export function withHidden(group: EnvGroup, hidden: boolean): EnvGroup {
+  const { hidden: _previous, ...rest } = group.indicator ?? {};
+  const indicator: NonNullable<EnvGroup['indicator']> = hidden ? { ...rest, hidden: true } : rest;
+  const { indicator: _old, ...base } = group;
+  return Object.keys(indicator).length > 0 ? { ...base, indicator } : base;
 }

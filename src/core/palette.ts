@@ -41,20 +41,11 @@ export type EnvKey = (typeof ENV_KEYS)[number];
  * four: someone with just prod and local had to notice they should switch two rows off. One
  * row you must fill, and a row of buttons for what else exists, is a smaller ask.
  *
- * Production rather than local because an unrecognised host is guessed as prod elsewhere too:
- * it puts the red pill on it, which is the safe direction to be wrong in.
+ * Production rather than local because it puts the red pill on an environment nobody has
+ * confirmed yet, which is the safe direction to be wrong in. Create-from-tab uses this same
+ * list: it drops the tab's URL into the one row and infers nothing else.
  */
 export const NEW_GROUP_ENV_KEYS: readonly EnvKey[] = ['prod'];
-
-/**
- * What "create a group from this tab" tries to guess.
- *
- * Deliberately NOT the same list as NEW_GROUP_ENV_KEYS, and this is the whole reason those
- * were split. Guessing is the opposite situation from a blank group: there, prefilled rows are
- * work you did not ask for; here, they are the entire feature. Collapsing these two back into
- * one constant would silently reduce create-from-tab to guessing prod and nothing else.
- */
-export const GUESSABLE_ENV_KEYS: readonly EnvKey[] = ['local', 'dev', 'staging', 'prod'];
 
 /**
  * Slots a user can add and rename via `EnvironmentDef.label`, without ever being able to pick

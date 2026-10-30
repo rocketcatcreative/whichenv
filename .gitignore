@@ -36,6 +36,7 @@ notes/
 store/*
 !store/privacy-policy.md
 !store/demo-page.html
+!store/demo-storefront.html
 
 docs/palette-preview.html
 

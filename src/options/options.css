@@ -543,7 +543,11 @@ textarea.text-input { resize: vertical; min-height: 44px; }
 
 .env-row .field-issues { padding-left: 33px; display: grid; gap: 2px; }
 
+.env-row-aliases { padding-left: 33px; }
+
 .aliases { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.aliases-label { font-size: 11.5px; color: var(--muted); }
 
 .alias-row { display: flex; align-items: center; gap: 4px; }
 

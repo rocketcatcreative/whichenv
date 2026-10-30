@@ -22,6 +22,7 @@ import { ENV_META, byPipelineOrder, type EnvKey } from '@core/palette';
 import { envBg, envFg } from '@ui/palette-vars';
 import { suggestLoopbackPort, whoClaimsPort } from '@core/ports';
 import {
+  LIMITS,
   TRISTATES,
   TRISTATE_LABELS,
   availableEnvKeys,
@@ -427,8 +428,10 @@ export function renderGroupEditor(
           guard,
           el('span', { textContent: 'Confirm before entering' }),
         ]),
-        aliasHost,
       ]),
+      // Its own row. Aliases and the confirm guard have nothing to do with each other, and
+      // sharing a line made "Also matches" read as a continuation of the checkbox.
+      el('div', { class: 'env-row-aliases' }, [aliasHost]),
       el('div', { class: 'field-issues', dataset: { issuesFor: path } }),
     ]);
 
@@ -441,6 +444,10 @@ export function renderGroupEditor(
     refresh: () => void,
   ): HTMLElement {
     const container = el('div', { class: 'aliases' });
+
+    // Says what the chips and inputs that follow are for. Without it they read as
+    // unrelated buttons sitting next to the confirm checkbox.
+    container.append(el('span', { class: 'aliases-label', textContent: 'Also matches:' }));
 
     for (const [aliasIndex, alias] of env.aliases.entries()) {
       const input = el('input', {
@@ -456,6 +463,9 @@ export function renderGroupEditor(
         env.aliases[aliasIndex] = input.value;
         revalidate();
       });
+      // A custom alias is added without revalidating (see below), so leaving it
+      // untouched has to surface the duplicate on the way out.
+      input.addEventListener('blur', () => revalidate());
 
       const drop = el('button', {
         class: 'btn btn-icon btn-icon-sm',
@@ -492,6 +502,38 @@ export function renderGroupEditor(
         revalidate();
       });
       container.append(add);
+    }
+
+    // The suggestions above only cover loopback counterparts. Anything else, like a
+    // www. host or a second staging box, starts here: a new input prefilled with the
+    // base URL and its host selected, so typing replaces just the host and the
+    // scheme, port and path carry over.
+    if (env.aliases.length < LIMITS.aliasesPerEnv) {
+      const custom = el('button', {
+        class: 'btn btn-ghost btn-sm',
+        type: 'button',
+        textContent: '+ Custom alias',
+        title: 'Add another URL that should count as this environment',
+        dataset: { action: 'custom-alias' },
+      });
+      custom.addEventListener('click', () => {
+        const parsed = parseBaseUrl(env.baseUrl);
+        const prefill = parsed.ok ? parsed.value.normalized : '';
+        const aliasIndex = env.aliases.push(prefill) - 1;
+        refresh();
+        // Deliberately not revalidated yet. The prefill is a copy of the base URL,
+        // which is a duplicate until the host is edited, and flashing an error at
+        // someone before they have typed anything reads as a mistake on their part.
+        // The input's own input and blur handlers catch it up.
+        const input = document.getElementById(
+          `environments.${index}-alias-${aliasIndex}`,
+        ) as HTMLInputElement | null;
+        if (!input) return;
+        input.focus();
+        const [start, end] = hostRange(prefill);
+        input.setSelectionRange(start, end);
+      });
+      container.append(custom);
     }
 
     return container;
@@ -702,6 +744,23 @@ function prefilled(key: EnvKey, draft: GroupDraft, allGroups: EnvGroup[]): Envir
   }
   void draft;
   return env;
+}
+
+/**
+ * Where the host sits in a URL string, as [start, end) for setSelectionRange.
+ * Handles bracketed IPv6 hosts. An empty or schemeless string selects nothing.
+ */
+export function hostRange(url: string): [number, number] {
+  const schemeEnd = url.indexOf('://');
+  if (schemeEnd < 0) return [url.length, url.length];
+  const start = schemeEnd + 3;
+  if (url[start] === '[') {
+    const close = url.indexOf(']', start);
+    return [start, close < 0 ? url.length : close + 1];
+  }
+  const rest = url.slice(start);
+  const stop = rest.search(/[:/?#]/);
+  return [start, stop < 0 ? url.length : start + stop];
 }
 
 function withSuggestedLocalPort(draft: GroupDraft, allGroups: EnvGroup[]): GroupDraft {

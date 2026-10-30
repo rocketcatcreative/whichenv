@@ -82,6 +82,16 @@ export type Request =
    */
   | { type: 'urlFor'; groupId: string; envKey: EnvKey; url: string }
   | { type: 'switch'; groupId: string; envKey: EnvKey; url: string; mode: OpenMode }
+  /**
+   * Opens every environment in the group at once, gathered into one Chrome tab group.
+   *
+   * Carries no environment list and no URLs, for the same reason `switch` does not: the
+   * worker recomputes the whole set from the URL the tab is on at the moment it runs.
+   * Whether the set needs confirming is decided by the surface that shows the button,
+   * because the confirm is a UI gesture; by the time this message is sent, the answer
+   * is yes.
+   */
+  | { type: 'openAll'; groupId: string; url: string }
   | { type: 'hideForTab' }
   | { type: 'openOptions' };
 
@@ -89,6 +99,8 @@ export type Response =
   | { type: 'resolved'; tab: ResolvedTab | null }
   | { type: 'url'; url: string }
   | { type: 'switched'; ok: true; url: string }
+  /** `opened` is tabs created, `adopted` is tabs that were already showing that URL. */
+  | { type: 'openedAll'; opened: number; adopted: number }
   | { type: 'error'; message: string }
   | { type: 'ok' };
 
