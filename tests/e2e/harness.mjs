@@ -69,7 +69,12 @@ export async function launch({ width = 1100, height = 800 } = {}) {
   return browser.launchPersistentContext(mkdtempSync(join(tmpdir(), 'es-e2e-')), {
     // Honour an explicit path when given, which keeps this working in sandboxes where
     // the bundled Chromium revision differs from what Playwright expects.
-    ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
+    // The full browser in headless mode. Playwright's default headless browser is the
+    // stripped-down headless shell, which cannot load extensions, so without this the
+    // service worker never starts.
+    ...(process.env.CHROMIUM_PATH
+      ? { executablePath: process.env.CHROMIUM_PATH }
+      : { channel: 'chromium' }),
     args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
     viewport: { width, height },
     // Needed to READ the clipboard back in a test. Writing needs no grant; without read

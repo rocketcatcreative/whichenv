@@ -62,7 +62,12 @@ const { chromium } = await import('playwright');
 /** A fresh profile per capture size, since deviceScaleFactor is fixed per context. */
 async function context(width, height, scale) {
   return chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'es-shots-')), {
-    ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
+    // The full browser in headless mode. Playwright's default headless browser is the
+    // stripped-down headless shell, which cannot load extensions, so without this the
+    // service worker never starts.
+    ...(process.env.CHROMIUM_PATH
+      ? { executablePath: process.env.CHROMIUM_PATH }
+      : { channel: 'chromium' }),
     args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
     viewport: { width, height },
     deviceScaleFactor: scale,
